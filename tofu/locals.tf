@@ -1,9 +1,4 @@
 locals {
-  # The tracking file is a flat JSON array of { domain, dateAdded, connectors,
-  # nameAvailable, nameAvailabilityReason, nameCheckedDate } - the nameAvailable fields
-  # are stamped by Update-DanglingConnectorDomain.ps1 from a live Azure
-  # checkNameAvailability check (true also covers a name this same config already
-  # claimed - see that script's Get-ClaimedFunctionAppNames).
   tracked_domains = jsondecode(file("${path.module}/${var.domains_file}"))
 
   # Only claim domains the last availability check found claimable - excludes ones

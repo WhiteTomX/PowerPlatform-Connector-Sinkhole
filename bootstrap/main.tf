@@ -73,13 +73,6 @@ resource "azurerm_federated_identity_credential" "production_environment" {
   subject                   = "repo:${var.github_repository}:environment:${var.github_environment}"
 }
 
-# discover-domains.yml: `schedule`/`workflow_dispatch` trigger, no `environment:` set on
-# the job - GitHub's OIDC subject for that is "repo:<owner>/<repo>:ref:refs/heads/<branch>"
-# (the branch the workflow file lives on for a schedule/dispatch run), NOT the
-# pull_request or environment subjects above - neither of those match, so this job needs
-# its own credential. Reuses the plan identity (read-only) since it only calls
-# Microsoft.Web/checkNameAvailability and lists Function Apps in the workload group
-# (both covered by the Reader role already granted below) - it needs no write access.
 resource "azurerm_federated_identity_credential" "discover_domains" {
   name                      = "gh-discover-domains"
   user_assigned_identity_id = azurerm_user_assigned_identity.github_actions_plan.id
