@@ -15,14 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Run domain discovery script
         shell: pwsh
         run: ./Update-DanglingConnectorDomain.ps1
 
       - name: Upload full CSV report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: unregistered-connector-domains-csv
           path: UnregisteredConnectorDomains.csv
@@ -38,7 +38,7 @@ jobs:
       # a PAT or GitHub App token with contents+pull-requests write for that to work;
       # otherwise re-run tofu-plan manually (or push an empty commit) on the PR.
       - name: Open PR with updated domain tracking
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.INFRA_PR_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: 'Update dangling azurewebsites.net domain tracking'
