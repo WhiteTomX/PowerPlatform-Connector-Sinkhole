@@ -31,9 +31,9 @@ provider "azurerm" {
   ]
   subscription_id = var.subscription_id
 
-  # The dumps storage account has shared_access_key_enabled = false, so container/blob
-  # management here (creating the dumps/deployment-package containers, uploading the
-  # deployment zip) must authenticate as the caller's own Entra ID identity instead of
-  # a storage account key.
+  # The functions storage account has shared_access_key_enabled = false, so
+  # container/blob management here (creating the dumps/deployment-package containers,
+  # uploading the deployment zip) must authenticate as the caller's own Entra ID
+  # identity instead of a storage account key.
   storage_use_azuread = true
 }

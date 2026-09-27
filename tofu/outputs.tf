@@ -8,7 +8,7 @@ output "reclaimed_domains" {
 
 output "storage_account_name" {
   description = "Storage account holding the 'dumps' container. Use with `az storage blob list/download/delete --account-name <this> -c dumps --auth-mode login` to review and clear captured requests."
-  value       = azurerm_storage_account.dumps.name
+  value       = azurerm_storage_account.functions.name
 }
 
 output "resource_group_name" {

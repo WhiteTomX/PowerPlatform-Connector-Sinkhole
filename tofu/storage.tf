@@ -19,8 +19,8 @@ resource "random_string" "storage_suffix" {
 # copyable connection string/key. Flex Consumption (unlike the old Y1 plan) supports
 # identity-based access for host storage and deployment packages by default, so one
 # account can safely cover everything.
-resource "azurerm_storage_account" "dumps" {
-  name                     = "stppcsdumps${random_string.storage_suffix.result}"
+resource "azurerm_storage_account" "functions" {
+  name                     = "stppcsfunc${random_string.storage_suffix.result}"
   resource_group_name      = data.azurerm_resource_group.main.name
   location                 = data.azurerm_resource_group.main.location
   account_tier             = "Standard"
@@ -33,7 +33,7 @@ resource "azurerm_storage_account" "dumps" {
 
 resource "azurerm_storage_container" "dumps" {
   name                  = "dumps"
-  storage_account_id    = azurerm_storage_account.dumps.id
+  storage_account_id    = azurerm_storage_account.functions.id
   container_access_type = "private"
 }
 
@@ -41,13 +41,13 @@ resource "azurerm_storage_container" "dumps" {
 # across all of them, so one shared container/blob is enough.
 resource "azurerm_storage_container" "deployment_package" {
   name                  = "deployment-package"
-  storage_account_id    = azurerm_storage_account.dumps.id
+  storage_account_id    = azurerm_storage_account.functions.id
   container_access_type = "private"
 }
 
 resource "azurerm_storage_management_policy" "dumps_expiry" {
   count              = var.dump_retention_days > 0 ? 1 : 0
-  storage_account_id = azurerm_storage_account.dumps.id
+  storage_account_id = azurerm_storage_account.functions.id
 
   rule {
     name    = "expire-dumps"

@@ -25,7 +25,7 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
   service_plan_id     = azurerm_service_plan.flex_consumption.id
 
   storage_container_type      = "blobContainer"
-  storage_container_endpoint  = "${azurerm_storage_account.dumps.primary_blob_endpoint}${azurerm_storage_container.deployment_package.name}"
+  storage_container_endpoint  = "${azurerm_storage_account.functions.primary_blob_endpoint}${azurerm_storage_container.deployment_package.name}"
   storage_authentication_type = "SystemAssignedIdentity"
 
   runtime_name           = "node"
@@ -48,9 +48,9 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
     # Identity-based AzureWebJobsStorage (host storage, and the "connection" the
     # dumps output binding in src/dump/function.json refers to) - the app's
     # system-assigned identity authenticates via the role assignment below instead
-    # of a shared key, since the dumps account has none.
+    # of a shared key, since the functions account has none.
     AzureWebJobsStorage              = "" # workaround until https://github.com/hashicorp/terraform-provider-azurerm/pull/29099 is released
-    AzureWebJobsStorage__accountName = azurerm_storage_account.dumps.name
+    AzureWebJobsStorage__accountName = azurerm_storage_account.functions.name
   }
 
   tags = {
@@ -59,15 +59,15 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
   }
 }
 
-# Grants each catcher app's own identity access to the whole dumps account - both to
-# write into the dumps container and to read the shared deployment package blob, and
-# to satisfy Flex Consumption's own host-storage bookkeeping. Storage Blob Data Owner
-# (not just Contributor) is what Microsoft's samples use for Flex Consumption's
+# Grants each catcher app's own identity access to the whole functions account - both
+# to write into the dumps container and to read the shared deployment package blob,
+# and to satisfy Flex Consumption's own host-storage bookkeeping. Storage Blob Data
+# Owner (not just Contributor) is what Microsoft's samples use for Flex Consumption's
 # identity-based storage access.
 resource "azurerm_role_assignment" "catcher_dumps_blob" {
   for_each = local.domain_labels
 
-  scope                = azurerm_storage_account.dumps.id
+  scope                = azurerm_storage_account.functions.id
   role_definition_name = "Storage Blob Data Owner"
   principal_id         = azurerm_function_app_flex_consumption.catcher[each.key].identity[0].principal_id
 }
