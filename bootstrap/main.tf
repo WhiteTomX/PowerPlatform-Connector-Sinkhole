@@ -87,7 +87,7 @@ resource "azurerm_role_assignment" "github_actions_plan_workload_config_reader" 
 }
 
 resource "azurerm_role_assignment" "github_actions_plan_workload_blob" {
-  scope                = azurerm_storage_account.tfstate.id
+  scope                = azurerm_resource_group.workload.id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
 }
