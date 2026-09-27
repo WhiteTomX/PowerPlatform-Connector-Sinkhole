@@ -1,29 +1,37 @@
-# Consumption ("Y1") plan: billed per-execution/GB-s with a substantial monthly free
-# grant, $0 while idle, and shared by every Function App below regardless of domain count.
-resource "azurerm_service_plan" "consumption" {
+# Flex Consumption ("FC1"): billed per-execution/GB-s like the old Y1 Consumption
+# plan, but (unlike Y1) supports identity-based access to its host/deployment storage
+# by default - no shared key needed anywhere. Shared by every Function App below
+# regardless of domain count.
+resource "azurerm_service_plan" "flex_consumption" {
   name                = "asp-ppcs"
   resource_group_name = data.azurerm_resource_group.main.name
   location            = data.azurerm_resource_group.main.location
   os_type             = "Linux"
-  sku_name            = "Y1"
+  sku_name            = "FC1"
 }
 
-
-# One Linux Consumption Function App per tracked domain, named after the domain's
+# One Flex Consumption Function App per tracked domain, named after the domain's
 # label (e.g. "cc-bot-master-server") so its default hostname IS
 # "<label>.azurewebsites.net" - claiming that name is what reclaims the dangling
 # domain. Adding/removing an entry in var.domains_file and re-applying
-# adds/removes the matching app here.
-resource "azurerm_linux_function_app" "catcher" {
+# adds/removes the matching app here. All of them run off the one deployment
+# package blob uploaded in deployment_package.tf, since the code is identical.
+resource "azurerm_function_app_flex_consumption" "catcher" {
   for_each = local.domain_labels
 
   name                = each.key
   resource_group_name = data.azurerm_resource_group.main.name
   location            = data.azurerm_resource_group.main.location
-  service_plan_id     = azurerm_service_plan.consumption.id
+  service_plan_id     = azurerm_service_plan.flex_consumption.id
 
-  storage_account_name       = azurerm_storage_account.runtime.name
-  storage_account_access_key = azurerm_storage_account.runtime.primary_access_key
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.dumps.primary_blob_endpoint}${azurerm_storage_container.deployment_package.name}"
+  storage_authentication_type = "SystemAssignedIdentity"
+
+  runtime_name           = "node"
+  runtime_version        = "20"
+  maximum_instance_count = 40
+  instance_memory_in_mb  = 2048
 
   identity {
     type = "SystemAssigned"
@@ -32,21 +40,17 @@ resource "azurerm_linux_function_app" "catcher" {
   # No Application Insights connection configured anywhere in this app - keeps the
   # only copy of captured request content in the blob written by dump.js, never in
   # a telemetry/log pipeline.
-  site_config {
-    application_stack {
-      node_version = "20"
-    }
-  }
+  site_config {}
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "node"
-    DOMAIN_LABEL             = each.key
+    DOMAIN_LABEL = each.key
 
-    # Identity-based connection for the dumps output binding below (see
-    # https://learn.microsoft.com/azure/azure-functions/functions-reference#connecting-to-host-storage-with-an-identity-based-connection) -
-    # the app's system-assigned identity authenticates via the DumpsStorage_blob role
-    # assignment instead of a shared key, since the dumps account has none.
-    DumpsStorage__blobServiceUri = azurerm_storage_account.dumps.primary_blob_endpoint
+    # Identity-based AzureWebJobsStorage (host storage, and the "connection" the
+    # dumps output binding in src/dump/function.json refers to) - the app's
+    # system-assigned identity authenticates via the role assignment below instead
+    # of a shared key, since the dumps account has none.
+    AzureWebJobsStorage              = "" # workaround until https://github.com/hashicorp/terraform-provider-azurerm/pull/29099 is released
+    AzureWebJobsStorage__accountName = azurerm_storage_account.dumps.name
   }
 
   tags = {
@@ -55,54 +59,15 @@ resource "azurerm_linux_function_app" "catcher" {
   }
 }
 
-# Grants each catcher app's own identity write access to the dumps container - nothing
-# broader, so a compromised function still can't do anything to the account beyond
-# writing blobs into it.
+# Grants each catcher app's own identity access to the whole dumps account - both to
+# write into the dumps container and to read the shared deployment package blob, and
+# to satisfy Flex Consumption's own host-storage bookkeeping. Storage Blob Data Owner
+# (not just Contributor) is what Microsoft's samples use for Flex Consumption's
+# identity-based storage access.
 resource "azurerm_role_assignment" "catcher_dumps_blob" {
   for_each = local.domain_labels
 
   scope                = azurerm_storage_account.dumps.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_linux_function_app.catcher[each.key].identity[0].principal_id
-}
-
-# Deploys the catch-all POST/PUT dump function's source directly via the AzureRM
-# provider (no build/zip pipeline) - identical for every app, driven purely by the
-# %DOMAIN_LABEL% app setting each app already carries.
-resource "azurerm_function_app_function" "dump" {
-  for_each = local.domain_labels
-
-  name            = "dump"
-  function_app_id = azurerm_linux_function_app.catcher[each.key].id
-  language        = "Javascript"
-
-  file {
-    name    = "index.js"
-    content = file("${path.module}/${var.function_source_path}")
-  }
-
-  config_json = jsonencode({
-    bindings = [
-      {
-        authLevel = "anonymous"
-        type      = "httpTrigger"
-        direction = "in"
-        name      = "req"
-        methods   = ["post", "put"]
-        route     = "{*rest}"
-      },
-      {
-        type      = "http"
-        direction = "out"
-        name      = "res"
-      },
-      {
-        type       = "blob"
-        direction  = "out"
-        name       = "outputBlob"
-        path       = "dumps/%DOMAIN_LABEL%/{rand-guid}.raw"
-        connection = "DumpsStorage"
-      }
-    ]
-  })
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = azurerm_function_app_flex_consumption.catcher[each.key].identity[0].principal_id
 }

@@ -23,9 +23,9 @@ variable "domains_file" {
 }
 
 variable "function_source_path" {
-  description = "Path to the catch-all dump function's source file, deployed identically into every Function App."
+  description = "Path to the Flex Consumption deployment package source directory (host.json plus one folder per function), zipped and deployed identically into every Function App."
   type        = string
-  default     = "../src/dump.js"
+  default     = "../src"
 }
 
 variable "dump_retention_days" {

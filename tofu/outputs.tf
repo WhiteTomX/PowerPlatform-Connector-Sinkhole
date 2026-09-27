@@ -1,7 +1,7 @@
 output "reclaimed_domains" {
   description = "Map of domain label -> the azurewebsites.net hostname now reserved by a Function App."
   value = {
-    for label, app in azurerm_linux_function_app.catcher :
+    for label, app in azurerm_function_app_flex_consumption.catcher :
     label => app.default_hostname
   }
 }

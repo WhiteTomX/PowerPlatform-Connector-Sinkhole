@@ -11,10 +11,14 @@ resource "random_string" "storage_suffix" {
   upper   = false
 }
 
-# Holds only the captured request dumps - the sensitive payload of this whole project.
-# Shared key access is disabled so the only way to read/write it is Entra ID + RBAC
-# (the catcher Function Apps' managed identities, or `az ... --auth-mode login` for a
-# human reviewing captures), never a copyable connection string/key.
+# Shared by every Function App below - as their Flex Consumption host storage
+# (AzureWebJobsStorage) AND as the destination for dumped requests, both accessed
+# purely via each app's system-assigned identity. Shared key access is disabled, so
+# the only way to read/write anything here is Entra ID + RBAC (the catcher apps'
+# identities, or `az ... --auth-mode login` for a human reviewing captures) - never a
+# copyable connection string/key. Flex Consumption (unlike the old Y1 plan) supports
+# identity-based access for host storage and deployment packages by default, so one
+# account can safely cover everything.
 resource "azurerm_storage_account" "dumps" {
   name                     = "stppcsdumps${random_string.storage_suffix.result}"
   resource_group_name      = data.azurerm_resource_group.main.name
@@ -27,23 +31,16 @@ resource "azurerm_storage_account" "dumps" {
   shared_access_key_enabled       = false
 }
 
-# The Y1 Consumption plan's host storage (AzureWebJobsStorage - scale controller
-# bookkeeping, run-from-package deployment) doesn't reliably support identity-based
-# access, so it stays key-based and separate from the dumps account. It never holds
-# captured request content.
-resource "azurerm_storage_account" "runtime" {
-  name                     = "stppcsrun${random_string.storage_suffix.result}"
-  resource_group_name      = data.azurerm_resource_group.main.name
-  location                 = data.azurerm_resource_group.main.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-  min_tls_version          = "TLS1_2"
-
-  allow_nested_items_to_be_public = false
-}
-
 resource "azurerm_storage_container" "dumps" {
   name                  = "dumps"
+  storage_account_id    = azurerm_storage_account.dumps.id
+  container_access_type = "private"
+}
+
+# Holds the zipped function code package every catcher app runs from - identical
+# across all of them, so one shared container/blob is enough.
+resource "azurerm_storage_container" "deployment_package" {
+  name                  = "deployment-package"
   storage_account_id    = azurerm_storage_account.dumps.id
   container_access_type = "private"
 }
