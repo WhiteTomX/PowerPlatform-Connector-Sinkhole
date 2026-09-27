@@ -61,8 +61,8 @@ the script itself to exercise those.
 main config's own remote backend and CI identity depend on, so it can't depend
 on either of those itself. Run it once - see [`bootstrap/README.md`](bootstrap/README.md)
 for the full procedure (its state starts local, then moves into the storage
-account it creates). The GitHub repository secrets/variables it feeds are
-listed below.
+account it creates). The GitHub repository secrets it feeds are listed
+below.
 
 ## GitHub Actions
 
@@ -76,7 +76,11 @@ Three workflows automate the whole loop:
   `tofu plan` and posts/updates a single PR comment with the result.
 - **`tofu-apply.yml`** (on push to `main`) - runs `tofu apply -auto-approve`.
 
-Required repository configuration (Settings -> Secrets and variables -> Actions):
+Required repository configuration (Settings -> Secrets and variables -> Actions).
+Everything is a secret, even the non-sensitive tfstate backend coordinates - so
+all CI configuration lives in one place (Actions secrets) instead of being
+split across two tabs, and nothing about the backend's naming/layout is
+exposed to anyone who can merely read the repo:
 
 | Name | Type | Source / purpose |
 | --- | --- | --- |
@@ -84,10 +88,10 @@ Required repository configuration (Settings -> Secrets and variables -> Actions)
 | `AZURE_CLIENT_ID_APPLY` | secret | `bootstrap` output `github_actions_apply_client_id` - read-write identity `tofu-apply.yml` authenticates as via OIDC |
 | `AZURE_TENANT_ID` | secret | `bootstrap` output `azure_tenant_id` |
 | `AZURE_SUBSCRIPTION_ID` | secret | `bootstrap` output `azure_subscription_id` |
-| `TFSTATE_RESOURCE_GROUP` | variable | `bootstrap` output `tfstate_resource_group_name` |
-| `TFSTATE_STORAGE_ACCOUNT` | variable | `bootstrap` output `tfstate_storage_account_name` |
-| `TFSTATE_CONTAINER` | variable | `bootstrap` output `tfstate_container_name` |
-| `TFSTATE_KEY` | variable | `bootstrap` output `tfstate_key` |
+| `TFSTATE_RESOURCE_GROUP` | secret | `bootstrap` output `tfstate_resource_group_name` |
+| `TFSTATE_STORAGE_ACCOUNT` | secret | `bootstrap` output `tfstate_storage_account_name` |
+| `TFSTATE_CONTAINER` | secret | `bootstrap` output `tfstate_container_name` |
+| `TFSTATE_KEY` | secret | `bootstrap` output `tfstate_key` |
 | `INFRA_PR_TOKEN` | secret (optional) | A PAT/GitHub App token with `contents:write`+`pull-requests:write`. Without it, `discover-domains.yml` still opens its PR using the default token, but that PR will **not** auto-trigger `tofu-plan.yml` (GitHub blocks workflow-triggered-workflow runs from the default token) - re-run `tofu-plan` manually or push a commit to the PR instead. |
 
 Both federated-credential subjects (pull_request, and `environment:production`) are
