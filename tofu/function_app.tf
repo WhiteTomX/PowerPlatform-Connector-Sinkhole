@@ -1,3 +1,14 @@
+# Consumption ("Y1") plan: billed per-execution/GB-s with a substantial monthly free
+# grant, $0 while idle, and shared by every Function App below regardless of domain count.
+resource "azurerm_service_plan" "consumption" {
+  name                = "asp-ppcs"
+  resource_group_name = data.azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
+  os_type             = "Linux"
+  sku_name            = "Y1"
+}
+
+
 # One Linux Consumption Function App per tracked domain, named after the domain's
 # label (e.g. "cc-bot-master-server") so its default hostname IS
 # "<label>.azurewebsites.net" - claiming that name is what reclaims the dangling

@@ -81,7 +81,7 @@ resource "azurerm_role_assignment" "github_actions_plan_workload_reader" {
 
 resource "azurerm_role_assignment" "github_actions_plan_tfstate_blob" {
   scope                = azurerm_storage_account.tfstate.id
-  role_definition_name = "Storage Blob Data Reader"
+  role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
 }
 

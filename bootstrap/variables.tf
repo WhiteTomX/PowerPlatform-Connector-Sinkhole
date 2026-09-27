@@ -11,9 +11,9 @@ variable "location" {
 }
 
 variable "github_repository" {
-  description = "GitHub \"owner/repo\" this identity's federated credentials trust. Must match exactly - it's embedded in the OIDC subject claim GitHub presents."
+  description = "GitHub \"owner/repo\" this identity's federated credentials trust. Must match exactly - it's embedded in the OIDC subject claim GitHub presents. Make sure to include owner_id and repo_id for new repos."
   type        = string
-  default     = "WhiteTomX/PowerPlatform-Connector-Sinkhole"
+  default     = "WhiteTomX@38078578/PowerPlatform-Connector-Sinkhole@1390709213"
 }
 
 variable "github_environment" {

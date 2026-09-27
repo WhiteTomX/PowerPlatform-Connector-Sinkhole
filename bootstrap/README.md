@@ -49,5 +49,5 @@ you've verified the remote state is intact.
 
 ## Wire up CI
 
-See the main `../README.md` for the required GitHub repository secrets/variables
+See the main `../README.md` for the required GitHub repository secrets
 and what each `bootstrap` output feeds into.
