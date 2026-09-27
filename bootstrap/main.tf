@@ -79,15 +79,6 @@ resource "azurerm_role_assignment" "github_actions_plan_workload_reader" {
   principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
 }
 
-# Reader above is ARM-only - `plan` still needs data-plane blob read to refresh state
-# for the dumps account's containers/deployment blob now that shared_access_key_enabled
-# = false rules out key-based refreshes (see storage_use_azuread in tofu/versions.tf).
-resource "azurerm_role_assignment" "github_actions_plan_workload_blob_reader" {
-  scope                = azurerm_resource_group.workload.id
-  role_definition_name = "Storage Blob Data Reader"
-  principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
-}
-
 resource "azurerm_role_assignment" "github_actions_plan_tfstate_blob" {
   scope                = azurerm_storage_account.tfstate.id
   role_definition_name = "Storage Blob Data Contributor"
