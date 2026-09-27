@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/random"
       version = "3.9.1"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "2.7.1"
+    }
   }
 
   backend "azurerm" {
@@ -26,4 +30,10 @@ provider "azurerm" {
     "Microsoft.Web"
   ]
   subscription_id = var.subscription_id
+
+  # The functions storage account has shared_access_key_enabled = false, so
+  # container/blob management here (creating the dumps/deployment-package containers,
+  # uploading the deployment zip) must authenticate as the caller's own Entra ID
+  # identity instead of a storage account key.
+  storage_use_azuread = true
 }

@@ -10,6 +10,7 @@ tofu/crash.log
 tofu/override.tf
 tofu/override.tf.json
 tofu/plan_output.txt
+tofu/dist/
 
 bootstrap/.terraform/
 bootstrap/*.tfstate

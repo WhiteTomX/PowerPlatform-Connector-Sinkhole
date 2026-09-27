@@ -91,10 +91,59 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_contributor" {
     "Website Contributor"         = "Required to create functions",
     "Web Plan Contributor"        = "Required to create Service Plan"
     "Storage Account Contributor" = "Create Storage for dumps"
+    # Data-plane role: Contributor above is ARM/management-plane only and can't
+    # create containers or upload the deployment package blob once the functions
+    # account has shared_access_key_enabled = false (see storage_use_azuread in
+    # tofu/versions.tf).
+    "Storage Blob Data Contributor" = "Create dumps/deployment-package containers and upload the function's deployment zip"
   }
   scope                = azurerm_resource_group.workload.id
   role_definition_name = each.key
   principal_id         = azurerm_user_assigned_identity.github_actions_apply.principal_id
+}
+
+# Storage Blob Data Owner - the only role `apply` is ever allowed to delegate via the
+# constrained User Access Administrator grant below. Flex Consumption's own samples
+# use this (not just Contributor) for a Function App's identity-based storage access.
+# Stable built-in GUID, same across every Azure tenant/subscription.
+locals {
+  storage_blob_data_owner_role_id = "b7e6dc6d-f1e8-4753-8033-0f276bb0955b"
+}
+
+# Contributor roles deliberately exclude Microsoft.Authorization/roleAssignments/write,
+# but `apply` needs to grant each catcher Function App's managed identity blob access
+# to the functions storage account (its only access, since that account has
+# shared_access_key_enabled = false). Plain User Access Administrator would let a
+# compromised `apply` identity grant ANY role - including Owner - to ANY principal in
+# the workload RG, i.e. full privilege escalation. The condition below constrains it
+# to assigning (and revoking) only Storage Blob Data Owner, no matter the target
+# principal or resource.
+resource "azurerm_role_assignment" "github_actions_apply_workload_uaa" {
+  scope                = azurerm_resource_group.workload.id
+  role_definition_name = "User Access Administrator"
+  principal_id         = azurerm_user_assigned_identity.github_actions_apply.principal_id
+  condition_version    = "2.0"
+  condition            = <<-COND
+    (
+      (
+        !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
+      )
+      OR
+      (
+        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_owner_role_id}}
+      )
+    )
+    AND
+    (
+      (
+        !(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})
+      )
+      OR
+      (
+        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_owner_role_id}}
+      )
+    )
+  COND
 }
 
 resource "azurerm_role_assignment" "github_actions_apply_tfstate_blob" {
