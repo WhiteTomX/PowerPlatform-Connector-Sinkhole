@@ -7,9 +7,11 @@ on:
       - 'tofu/**'
       - 'UnregisteredAzureWebsitesDomains.json'
       - '.github/workflows/tofu-apply.yml'
+      - '.github/workflows/tofu-plan.yml'
 
 permissions:
   contents: read
+  pull-requests: write
   id-token: write
 
 concurrency:
@@ -26,23 +28,18 @@ jobs:
   apply:
     runs-on: ubuntu-latest
     environment: production
-    defaults:
-      run:
-        working-directory: tofu
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up OpenTofu
-        uses: opentofu/setup-opentofu@v1
-
-      - name: tofu init
-        run: |
-          tofu init -input=false \
-            -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}" \
-            -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}" \
-            -backend-config="container_name=${{ secrets.TFSTATE_CONTAINER }}" \
-            -backend-config="key=${{ secrets.TFSTATE_KEY }}"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: tofu apply
-        run: tofu apply -input=false -auto-approve -no-color
+        uses: dflook/tofu-apply@e3e5dfc8f935d4b152c767801046f63abf8a77d3 # v3.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path: tofu
+          backend_config: |
+            resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}
+            storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+            container_name=${{ secrets.TFSTATE_CONTAINER }}
+            key=${{ secrets.TFSTATE_KEY }}
