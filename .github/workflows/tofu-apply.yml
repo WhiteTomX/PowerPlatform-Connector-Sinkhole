@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tofu/**'
+      - 'bootstrap/**'
       - 'UnregisteredAzureWebsitesDomains.json'
       - '.github/workflows/tofu-apply.yml'
       - '.github/workflows/tofu-plan.yml'
