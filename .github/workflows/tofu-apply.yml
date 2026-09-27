@@ -9,6 +9,7 @@ on:
       - 'UnregisteredAzureWebsitesDomains.json'
       - '.github/workflows/tofu-apply.yml'
       - '.github/workflows/tofu-plan.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -39,6 +40,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           path: tofu
+          auto_approve: ${{ github.event_name == 'workflow_dispatch' }}
           backend_config: |
             resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}
             storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
