@@ -38,7 +38,7 @@ jobs:
       # a PAT or GitHub App token with contents+pull-requests write for that to work;
       # otherwise re-run tofu-plan manually (or push an empty commit) on the PR.
       - name: Open PR with updated domain tracking
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
         with:
           token: ${{ secrets.INFRA_PR_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: 'Update dangling azurewebsites.net domain tracking'
