@@ -22,8 +22,12 @@ resource "azurerm_linux_function_app" "catcher" {
   location            = data.azurerm_resource_group.main.location
   service_plan_id     = azurerm_service_plan.consumption.id
 
-  storage_account_name       = azurerm_storage_account.dumps.name
-  storage_account_access_key = azurerm_storage_account.dumps.primary_access_key
+  storage_account_name       = azurerm_storage_account.runtime.name
+  storage_account_access_key = azurerm_storage_account.runtime.primary_access_key
+
+  identity {
+    type = "SystemAssigned"
+  }
 
   # No Application Insights connection configured anywhere in this app - keeps the
   # only copy of captured request content in the blob written by dump.js, never in
@@ -37,12 +41,29 @@ resource "azurerm_linux_function_app" "catcher" {
   app_settings = {
     FUNCTIONS_WORKER_RUNTIME = "node"
     DOMAIN_LABEL             = each.key
+
+    # Identity-based connection for the dumps output binding below (see
+    # https://learn.microsoft.com/azure/azure-functions/functions-reference#connecting-to-host-storage-with-an-identity-based-connection) -
+    # the app's system-assigned identity authenticates via the DumpsStorage_blob role
+    # assignment instead of a shared key, since the dumps account has none.
+    DumpsStorage__blobServiceUri = azurerm_storage_account.dumps.primary_blob_endpoint
   }
 
   tags = {
     purpose = "ppcs-sinkhole"
     domain  = each.value
   }
+}
+
+# Grants each catcher app's own identity write access to the dumps container - nothing
+# broader, so a compromised function still can't do anything to the account beyond
+# writing blobs into it.
+resource "azurerm_role_assignment" "catcher_dumps_blob" {
+  for_each = local.domain_labels
+
+  scope                = azurerm_storage_account.dumps.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_linux_function_app.catcher[each.key].identity[0].principal_id
 }
 
 # Deploys the catch-all POST/PUT dump function's source directly via the AzureRM
@@ -80,7 +101,7 @@ resource "azurerm_function_app_function" "dump" {
         direction  = "out"
         name       = "outputBlob"
         path       = "dumps/%DOMAIN_LABEL%/{rand-guid}.raw"
-        connection = "AzureWebJobsStorage"
+        connection = "DumpsStorage"
       }
     ]
   })

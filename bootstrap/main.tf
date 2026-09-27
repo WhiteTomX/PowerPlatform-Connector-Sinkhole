@@ -97,6 +97,49 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_contributor" {
   principal_id         = azurerm_user_assigned_identity.github_actions_apply.principal_id
 }
 
+# Storage Blob Data Contributor - the only role `apply` is ever allowed to delegate
+# via the constrained User Access Administrator grant below. Stable built-in GUID,
+# same across every Azure tenant/subscription.
+locals {
+  storage_blob_data_contributor_role_id = "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
+}
+
+# Contributor roles deliberately exclude Microsoft.Authorization/roleAssignments/write,
+# but `apply` needs to grant each catcher Function App's managed identity blob access
+# to the dumps storage account (its only access, since that account has
+# shared_access_key_enabled = false). Plain User Access Administrator would let a
+# compromised `apply` identity grant ANY role - including Owner - to ANY principal in
+# the workload RG, i.e. full privilege escalation. The condition below constrains it
+# to assigning (and revoking) only Storage Blob Data Contributor, no matter the target
+# principal or resource.
+resource "azurerm_role_assignment" "github_actions_apply_workload_uaa" {
+  scope                = azurerm_resource_group.workload.id
+  role_definition_name = "User Access Administrator"
+  principal_id         = azurerm_user_assigned_identity.github_actions_apply.principal_id
+  condition_version    = "2.0"
+  condition            = <<-COND
+    (
+      (
+        !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
+      )
+      OR
+      (
+        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_contributor_role_id}}
+      )
+    )
+    AND
+    (
+      (
+        !(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})
+      )
+      OR
+      (
+        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_contributor_role_id}}
+      )
+    )
+  COND
+}
+
 resource "azurerm_role_assignment" "github_actions_apply_tfstate_blob" {
   scope                = azurerm_storage_account.tfstate.id
   role_definition_name = "Storage Blob Data Contributor"
