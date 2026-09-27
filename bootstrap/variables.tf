@@ -22,6 +22,12 @@ variable "github_environment" {
   default     = "production"
 }
 
+variable "github_default_branch" {
+  description = "Default branch discover-domains.yml runs on (its `schedule`/`workflow_dispatch` triggers set no `environment:`, so GitHub's OIDC subject claim is the branch ref: \"repo:<owner>/<repo>:ref:refs/heads/<this>\")."
+  type        = string
+  default     = "main"
+}
+
 variable "tfstate_resource_group_name" {
   description = "Resource group to hold the Terraform/OpenTofu remote state storage account."
   type        = string

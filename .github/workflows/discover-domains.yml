@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   discover:
@@ -17,9 +18,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Read-only: lets the script's Azure Function App name-availability check run
+      # (see Get-ClaimedFunctionAppNames/Get-AzureNameAvailabilityMap in the script) so
+      # newly/previously unclaimable domains get re-verified and stamped in the tracking
+      # JSON. Reuses the same read-only identity as tofu-plan.yml - it needs its own
+      # federated-credential subject though, since this job's trigger (schedule/
+      # workflow_dispatch, no `environment:`) has a different OIDC subject than
+      # tofu-plan's `pull_request` one (see bootstrap/main.tf's discover_domains
+      # federated credential - it must be applied via `tofu apply` in bootstrap/ before
+      # this step will succeed).
+      - name: Azure login (read-only)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_PLAN }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Run domain discovery script
         shell: pwsh
-        run: ./Update-DanglingConnectorDomain.ps1
+        run: ./Update-DanglingConnectorDomain.ps1 -AzureSubscriptionId '${{ secrets.AZURE_SUBSCRIPTION_ID }}'
 
       - name: Upload full CSV report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -52,7 +69,9 @@ jobs:
 
             Merging this will cause `tofu apply` (on push to main) to create a
             catcher Function App for any newly added domain, and destroy the
-            Function App for any domain removed here.
+            Function App for any domain removed here - but only for entries whose
+            `nameAvailable` is `true`; see each entry's `nameAvailabilityReason`/
+            `nameCheckedDate` for domains currently skipped as unclaimable.
           branch: automation/dangling-domain-tracking
           add-paths: UnregisteredAzureWebsitesDomains.json
           delete-branch: true

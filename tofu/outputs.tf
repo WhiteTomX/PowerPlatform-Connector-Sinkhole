@@ -14,3 +14,11 @@ output "storage_account_name" {
 output "resource_group_name" {
   value = data.azurerm_resource_group.main.name
 }
+
+output "skipped_unavailable_domains" {
+  description = "Tracked domains excluded from this apply because their last Azure name-availability check (or the absence of one) found them not currently claimable - see UnregisteredAzureWebsitesDomains.json's nameAvailabilityReason/nameCheckedDate for each."
+  value = [
+    for entry in local.tracked_domains :
+    entry.domain if try(entry.nameAvailable, false) != true
+  ]
+}

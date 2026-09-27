@@ -63,12 +63,35 @@
 .PARAMETER AzureWebsitesTrackingFile
     Path to a JSON file that accumulates every unregistered (NXDOMAIN) *.azurewebsites.net
     host seen across runs - each entry records the domain, the date it was first seen,
-    and the connector file(s) that declare it. An entry's host resolving again does NOT
-    remove it. It is only removed once every connector that ever referenced it is gone
-    from the current scan - i.e. no connector file in the repo declares that host any
-    more, whether or not it was NXDOMAIN - since at that point the entry no longer
+    the connector file(s) that declare it, and the last Azure Function App name-
+    availability result (nameAvailable/nameAvailabilityReason/nameCheckedDate - see
+    AzureSubscriptionId/AzureResourceGroupName below). An entry's host resolving again
+    does NOT remove it. It is only removed once every connector that ever referenced it
+    is gone from the current scan - i.e. no connector file in the repo declares that host
+    any more, whether or not it was NXDOMAIN - since at that point the entry no longer
     corresponds to anything in the repo to triage. Defaults to
     .\UnregisteredAzureWebsitesDomains.json
+
+.PARAMETER AzureResourceGroupName
+    Resource group the OpenTofu config under .\tofu deploys catcher Function Apps into
+    (see tofu/variables.tf's resource_group_name). Names already deployed there are
+    stamped nameAvailable=true (reason "AlreadyClaimedByUs") without a live availability
+    call, so re-running this script never flips an already-reclaimed domain back out of
+    Terraform's for_each and gets it destroyed. Defaults to "rg-ppcs".
+
+.PARAMETER AzureSubscriptionId
+    Azure subscription to check Function App name availability against, and to look for
+    already-claimed Function Apps in (see AzureResourceGroupName). Leave null to use the
+    az CLI's current subscription, same as the OpenTofu config's var.subscription_id.
+    Requires an `az login`'d session; if az isn't installed or isn't logged in, the
+    availability check is skipped for this run (with a warning) and existing entries keep
+    whatever nameAvailable value they already had.
+
+.PARAMETER SkipAvailabilityCheck
+    If set, skips the Azure name-availability check entirely (e.g. for a quick DNS-only
+    scan with no az CLI/network access to Azure). Existing entries keep whatever
+    nameAvailable value they already had; newly discovered entries get none, so Terraform
+    will not claim them until a later run checks them.
 
 .EXAMPLE
     .\Update-DanglingConnectorDomain.ps1
@@ -92,6 +115,12 @@ param(
     [string]$OutputCsv = '.\UnregisteredConnectorDomains.csv',
 
     [string]$AzureWebsitesTrackingFile = '.\UnregisteredAzureWebsitesDomains.json',
+
+    [string]$AzureResourceGroupName = 'rg-ppcs',
+
+    [string]$AzureSubscriptionId,
+
+    [switch]$SkipAvailabilityCheck,
 
     [switch]$SkipClone,
 
@@ -285,6 +314,225 @@ function Get-AzureWebsitesTrackingUpdate {
         AddedDomains   = @($newEntries | ForEach-Object { $_.domain })
         RemovedDomains = @($removedEntries | ForEach-Object { $_.domain })
     }
+}
+
+function Set-AzureNameAvailability {
+    <#
+    .SYNOPSIS
+        Stamps each tracking entry with the freshest Azure Function App name-availability
+        result available, for OpenTofu's local.domain_labels filter to consume.
+    .DESCRIPTION
+        Pure function - takes a pre-computed $AvailabilityMap (domain -> pscustomobject
+        with NameAvailable/Reason) rather than calling Azure itself, so it's unit-testable
+        without a live subscription; the live REST/az CLI calls that build that map live in
+        Get-AzureNameAvailabilityMap / Get-ClaimedFunctionAppNames below.
+
+        A domain missing from $AvailabilityMap (the live check errored, was skipped via
+        -SkipAvailabilityCheck, or az wasn't available this run) keeps whatever
+        nameAvailable/nameAvailabilityReason/nameCheckedDate it already had on the existing
+        entry - stale-but-known beats silently downgrading to unknown on a transient
+        failure. A brand new entry missing from the map simply gets none of those
+        properties, which OpenTofu's filter treats as "not yet verified" (excluded) until a
+        later run checks it.
+    .OUTPUTS
+        [array] of pscustomobjects, one per input entry, in the same order.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSUseShouldProcessForStateChangingFunctions', '',
+        Justification = 'Despite the Set- verb this is a pure in-memory transform (see Get-AzureWebsitesTrackingUpdate above, same pattern) - it changes no system state, so ShouldProcess does not apply.')]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][array]$Entries,
+        [Parameter(Mandatory)][hashtable]$AvailabilityMap,
+        [Parameter(Mandatory)][string]$Today
+    )
+
+    foreach ($entry in $Entries) {
+        $result = $AvailabilityMap[$entry.domain]
+
+        $nameAvailable          = $null
+        $nameAvailabilityReason = $null
+        $nameCheckedDate        = $null
+
+        if ($null -ne $result) {
+            $nameAvailable          = [bool]$result.NameAvailable
+            $nameAvailabilityReason = $result.Reason
+            $nameCheckedDate        = $Today
+        }
+        else {
+            if ($entry.PSObject.Properties.Name -contains 'nameAvailable') {
+                $nameAvailable = $entry.nameAvailable
+            }
+            if ($entry.PSObject.Properties.Name -contains 'nameAvailabilityReason') {
+                $nameAvailabilityReason = $entry.nameAvailabilityReason
+            }
+            if ($entry.PSObject.Properties.Name -contains 'nameCheckedDate') {
+                $nameCheckedDate = $entry.nameCheckedDate
+            }
+        }
+
+        [pscustomobject]@{
+            domain                 = $entry.domain
+            dateAdded              = $entry.dateAdded
+            connectors             = $entry.connectors
+            nameAvailable          = $nameAvailable
+            nameAvailabilityReason = $nameAvailabilityReason
+            nameCheckedDate        = $nameCheckedDate
+        }
+    }
+}
+
+#endregion
+
+#region Azure Function App name-availability check (live - needs an `az login`'d session; kept above the dot-source guard so Pester CAN mock/call these directly if ever needed, unlike the clone/DNS logic below)
+
+function Get-ClaimedFunctionAppNames {
+    <#
+    .SYNOPSIS
+        Returns the Function App names already deployed in $ResourceGroupName - i.e. ones
+        this project's own OpenTofu config already reclaimed - as a case-insensitive set.
+    .DESCRIPTION
+        A name we already own will (correctly) come back nameAvailable=false from Azure's
+        global checkNameAvailability check, same as a name someone else holds - the API
+        can't tell "taken by you" from "taken by anyone else" apart. Without this, every
+        re-run of this script would flip already-reclaimed domains back out of Terraform's
+        for_each and get them destroyed. Returns an empty set (with a warning) if az isn't
+        installed, isn't logged in, or the resource group doesn't exist yet - callers then
+        just fall through to a live availability check for every domain, same as before
+        this feature existed.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [string]$SubscriptionId
+    )
+
+    $claimed = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+
+    if (-not (Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Warning 'az CLI not found - treating no domains as already-claimed by us this run.'
+        return $claimed
+    }
+
+    $azArgs = @('functionapp', 'list', '--resource-group', $ResourceGroupName, '--query', '[].name', '-o', 'tsv')
+    if ($SubscriptionId) { $azArgs += @('--subscription', $SubscriptionId) }
+
+    $names = & az @azArgs 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Could not list Function Apps in resource group '$ResourceGroupName' (not created yet, or az isn't logged in) - treating no domains as already-claimed by us this run."
+        return $claimed
+    }
+
+    foreach ($name in @($names)) {
+        if (-not [string]::IsNullOrWhiteSpace($name)) { [void]$claimed.Add($name.Trim()) }
+    }
+
+    return $claimed
+}
+
+function Get-AzureNameAvailabilityMap {
+    <#
+    .SYNOPSIS
+        Checks Azure Function App name availability for each domain's label and returns
+        domain -> pscustomobject{ NameAvailable; Reason }.
+    .DESCRIPTION
+        Domains whose label is in $ClaimedLabels (see Get-ClaimedFunctionAppNames) are
+        stamped nameAvailable=true / reason "AlreadyClaimedByUs" directly, with no live
+        call - they're ours already, so what Azure's global uniqueness check would say
+        about them is moot. Every other domain gets a live
+        Microsoft.Web/checkNameAvailability call via Invoke-RestMethod (a bearer token is
+        fetched once via `az account get-access-token` and reused across the parallel
+        calls) - NOT `az rest` per-domain, since on Windows `az` is a .cmd shim and its
+        re-quoting of a JSON --body argument can silently drop the Content-Type Azure
+        needs, making every call fail. A domain whose call errors out after retries is
+        left out of the returned map entirely (not stamped false) so callers can fall
+        back to a prior known value instead of downgrading to "unavailable" on a
+        transient failure.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Domains,
+        [Parameter(Mandatory)][AllowNull()]$ClaimedLabels,
+        [string]$SubscriptionId,
+        [int]$ThrottleLimit = 16,
+        [int]$RetryCount = 2
+    )
+
+    $map = @{}
+    if ($Domains.Count -eq 0) { return $map }
+
+    foreach ($domain in $Domains) {
+        $label = $domain -replace '\.azurewebsites\.net$', ''
+        if ($ClaimedLabels -and $ClaimedLabels.Contains($label)) {
+            $map[$domain] = [pscustomobject]@{ NameAvailable = $true; Reason = 'AlreadyClaimedByUs' }
+        }
+    }
+
+    $toCheck = @($Domains | Where-Object { -not $map.ContainsKey($_) })
+    if ($toCheck.Count -eq 0) { return $map }
+
+    if (-not (Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Warning 'az CLI not found - skipping live Azure name-availability checks this run.'
+        return $map
+    }
+
+    if (-not $SubscriptionId) {
+        $SubscriptionId = (az account show --query id -o tsv 2>$null)
+        if (-not $SubscriptionId) {
+            Write-Warning 'Could not determine an Azure subscription (az not logged in?) - skipping live Azure name-availability checks this run.'
+            return $map
+        }
+    }
+
+    $accessToken = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv 2>$null)
+    if (-not $accessToken) {
+        Write-Warning 'Could not obtain an Azure access token (az not logged in?) - skipping live Azure name-availability checks this run.'
+        return $map
+    }
+
+    $checkUrl = "https://management.azure.com/subscriptions/$SubscriptionId/providers/Microsoft.Web/checkNameAvailability?api-version=2023-12-01"
+
+    $liveResults = @($toCheck | ForEach-Object -Parallel {
+        Set-StrictMode -Version Latest
+        $ErrorActionPreference = 'Stop'
+
+        $domain     = $_
+        $label      = $domain -replace '\.azurewebsites\.net$', ''
+        $checkUrl   = $using:checkUrl
+        $token      = $using:accessToken
+        $retryCount = $using:RetryCount
+
+        $headers = @{ Authorization = "Bearer $token" }
+        $body    = @{ name = $label; type = 'Microsoft.Web/sites'; isFqdn = $false } | ConvertTo-Json -Compress
+
+        $attempt  = 0
+        $response = $null
+        while ($true) {
+            $attempt++
+            try {
+                $response = Invoke-RestMethod -Method Post -Uri $checkUrl -Headers $headers -ContentType 'application/json' -Body $body -ErrorAction Stop
+                break
+            }
+            catch {
+                if ($attempt -gt $retryCount) {
+                    Write-Verbose "checkNameAvailability failed for '$domain': $($_.Exception.Message)"
+                    break
+                }
+                Start-Sleep -Milliseconds (300 * $attempt)
+            }
+        }
+
+        if ($null -ne $response) {
+            [pscustomobject]@{
+                Domain        = $domain
+                NameAvailable = [bool]$response.nameAvailable
+                Reason        = [string]$response.reason
+            }
+        }
+    } -ThrottleLimit $ThrottleLimit)
+
+    foreach ($r in $liveResults) {
+        $map[$r.Domain] = [pscustomobject]@{ NameAvailable = $r.NameAvailable; Reason = $r.Reason }
+    }
+
+    return $map
 }
 
 #endregion
@@ -537,26 +785,36 @@ if ($existingEntries.Count -gt 0 -or $azureNxDomains.Count -gt 0) {
     Write-Host ''
     Write-Host "Updating azurewebsites.net tracking file '$AzureWebsitesTrackingFile'..." -ForegroundColor Cyan
 
-    $update = Get-AzureWebsitesTrackingUpdate -ExistingEntries $existingEntries -AzureNxDomains $azureNxDomains -HostMap $hostMap -Today (Get-Date).ToString('yyyy-MM-dd')
+    $today  = (Get-Date).ToString('yyyy-MM-dd')
+    $update = Get-AzureWebsitesTrackingUpdate -ExistingEntries $existingEntries -AzureNxDomains $azureNxDomains -HostMap $hostMap -Today $today
 
     if ($update.RemovedDomains.Count -gt 0) {
         Write-Host "  Removed $($update.RemovedDomains.Count) domain(s) no connector declares any more: $($update.RemovedDomains -join ', ')" -ForegroundColor Yellow
     }
+    if ($update.AddedDomains.Count -gt 0) {
+        Write-Host "  Added $($update.AddedDomains.Count) new domain(s); $($update.Entries.Count - $update.AddedDomains.Count) pre-existing entry/entries kept. Total tracked: $($update.Entries.Count)." -ForegroundColor Green
+    }
 
-    if ($update.AddedDomains.Count -gt 0 -or $update.RemovedDomains.Count -gt 0) {
-        if ($update.Entries.Count -eq 0) {
-            Set-Content -LiteralPath $AzureWebsitesTrackingFile -Value '[]' -Encoding UTF8 -ErrorAction Stop
-        }
-        else {
-            $update.Entries | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $AzureWebsitesTrackingFile -Encoding UTF8 -ErrorAction Stop
-        }
+    if (-not $SkipAvailabilityCheck -and $update.Entries.Count -gt 0) {
+        Write-Host "  Checking Azure Function App name availability for $($update.Entries.Count) tracked domain(s))..." -ForegroundColor Cyan
 
-        $keptCount = $update.Entries.Count - $update.AddedDomains.Count
-        Write-Host "  Added $($update.AddedDomains.Count) new domain(s); $keptCount pre-existing entry/entries kept. Total tracked: $($update.Entries.Count)." -ForegroundColor Green
+        $claimedLabels   = Get-ClaimedFunctionAppNames -ResourceGroupName $AzureResourceGroupName -SubscriptionId $AzureSubscriptionId
+        $availabilityMap = Get-AzureNameAvailabilityMap -Domains @($update.Entries.domain) -ClaimedLabels $claimedLabels -SubscriptionId $AzureSubscriptionId -ThrottleLimit $ThrottleLimit -RetryCount $RetryCount
+        $update.Entries  = @(Set-AzureNameAvailability -Entries $update.Entries -AvailabilityMap $availabilityMap -Today $today)
+
+        $checkedCt   = @($update.Entries | Where-Object { $_.nameCheckedDate -eq $today }).Count
+        $availableCt = @($update.Entries | Where-Object { $_.nameAvailable -eq $true }).Count
+        Write-Host "  $checkedCt of $($update.Entries.Count) domain(s) checked just now; $availableCt of $($update.Entries.Count) currently have an available/already-claimed-by-us name (safe for Terraform to claim)." -ForegroundColor Green
+    }
+
+    if ($update.Entries.Count -eq 0) {
+        Set-Content -LiteralPath $AzureWebsitesTrackingFile -Value '[]' -Encoding UTF8 -ErrorAction Stop
     }
     else {
-        Write-Host "  No changes - tracking file unchanged ($($existingEntries.Count) entries)." -ForegroundColor Green
+        $update.Entries | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $AzureWebsitesTrackingFile -Encoding UTF8 -ErrorAction Stop
     }
+
+    Write-Host "  Wrote $($update.Entries.Count) entrie(s) to '$AzureWebsitesTrackingFile'." -ForegroundColor Green
 }
 
 #endregion

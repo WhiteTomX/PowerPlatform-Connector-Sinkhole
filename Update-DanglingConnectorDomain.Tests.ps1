@@ -248,3 +248,81 @@ Describe 'Get-AzureWebsitesTrackingUpdate' {
         $result.RemovedDomains | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Set-AzureNameAvailability' {
+    BeforeAll {
+        $today = '2026-09-28'
+    }
+
+    It 'stamps an entry with a fresh live result' {
+        $entries = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') })
+        $map     = @{ 'foo.azurewebsites.net' = [pscustomobject]@{ NameAvailable = $true; Reason = 'Available' } }
+
+        $result = Set-AzureNameAvailability -Entries $entries -AvailabilityMap $map -Today $today
+
+        $result[0].nameAvailable | Should -BeTrue
+        $result[0].nameAvailabilityReason | Should -Be 'Available'
+        $result[0].nameCheckedDate | Should -Be $today
+    }
+
+    It 'stamps an unavailable name with its reason' {
+        $entries = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') })
+        $map     = @{ 'foo.azurewebsites.net' = [pscustomobject]@{ NameAvailable = $false; Reason = 'AlreadyExists' } }
+
+        $result = Set-AzureNameAvailability -Entries $entries -AvailabilityMap $map -Today $today
+
+        $result[0].nameAvailable | Should -BeFalse
+        $result[0].nameAvailabilityReason | Should -Be 'AlreadyExists'
+    }
+
+    It 'preserves an existing entry''s prior availability when the map has no fresh result for it' {
+        $entries = @([pscustomobject]@{
+            domain                 = 'foo.azurewebsites.net'
+            dateAdded              = '2026-01-01'
+            connectors              = @('a.json')
+            nameAvailable           = $true
+            nameAvailabilityReason  = 'AlreadyClaimedByUs'
+            nameCheckedDate         = '2026-09-01'
+        })
+
+        $result = Set-AzureNameAvailability -Entries $entries -AvailabilityMap @{} -Today $today
+
+        $result[0].nameAvailable | Should -BeTrue
+        $result[0].nameAvailabilityReason | Should -Be 'AlreadyClaimedByUs'
+        $result[0].nameCheckedDate | Should -Be '2026-09-01'
+    }
+
+    It 'leaves a brand new entry with no availability fields when the map has nothing for it' {
+        $entries = @([pscustomobject]@{ domain = 'brand-new.azurewebsites.net'; dateAdded = $today; connectors = @('a.json') })
+
+        $result = Set-AzureNameAvailability -Entries $entries -AvailabilityMap @{} -Today $today
+
+        $result[0].nameAvailable | Should -BeNullOrEmpty
+        $result[0].nameAvailabilityReason | Should -BeNullOrEmpty
+        $result[0].nameCheckedDate | Should -BeNullOrEmpty
+    }
+
+    It 'preserves domain/dateAdded/connectors unchanged' {
+        $entries = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json', 'b.json') })
+
+        $result = Set-AzureNameAvailability -Entries $entries -AvailabilityMap @{} -Today $today
+
+        $result[0].domain | Should -Be 'foo.azurewebsites.net'
+        $result[0].dateAdded | Should -Be '2026-01-01'
+        $result[0].connectors | Should -Be @('a.json', 'b.json')
+    }
+
+    It 'processes multiple entries independently' {
+        $entries = @(
+            [pscustomobject]@{ domain = 'a.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') }
+            [pscustomobject]@{ domain = 'b.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('b.json') }
+        )
+        $map = @{ 'a.azurewebsites.net' = [pscustomobject]@{ NameAvailable = $true; Reason = 'Available' } }
+
+        $result = @(Set-AzureNameAvailability -Entries $entries -AvailabilityMap $map -Today $today)
+
+        $result.Count | Should -Be 2
+        ($result | Where-Object domain -eq 'a.azurewebsites.net').nameAvailable | Should -BeTrue
+        ($result | Where-Object domain -eq 'b.azurewebsites.net').nameAvailable | Should -BeNullOrEmpty
+    }
+}

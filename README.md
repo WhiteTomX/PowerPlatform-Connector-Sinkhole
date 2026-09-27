@@ -84,7 +84,7 @@ exposed to anyone who can merely read the repo:
 
 | Name | Type | Source / purpose |
 | --- | --- | --- |
-| `AZURE_CLIENT_ID_PLAN` | secret | `bootstrap` output `github_actions_plan_client_id` - read-only identity `tofu-plan.yml` authenticates as via OIDC |
+| `AZURE_CLIENT_ID_PLAN` | secret | `bootstrap` output `github_actions_plan_client_id` - read-only identity `tofu-plan.yml` and `discover-domains.yml` (for its Azure Function App name-availability check) authenticate as via OIDC |
 | `AZURE_CLIENT_ID_APPLY` | secret | `bootstrap` output `github_actions_apply_client_id` - read-write identity `tofu-apply.yml` authenticates as via OIDC |
 | `AZURE_TENANT_ID` | secret | `bootstrap` output `azure_tenant_id` |
 | `AZURE_SUBSCRIPTION_ID` | secret | `bootstrap` output `azure_subscription_id` |
@@ -94,11 +94,13 @@ exposed to anyone who can merely read the repo:
 | `TFSTATE_KEY` | secret | `bootstrap` output `tfstate_key` |
 | `INFRA_PR_TOKEN` | secret (optional) | A PAT/GitHub App token with `contents:write`+`pull-requests:write`. Without it, `discover-domains.yml` still opens its PR using the default token, but that PR will **not** auto-trigger `tofu-plan.yml` (GitHub blocks workflow-triggered-workflow runs from the default token) - re-run `tofu-plan` manually or push a commit to the PR instead. |
 
-Both federated-credential subjects (pull_request, and `environment:production`) are
-created by `bootstrap` already - nothing manual needed there beyond keeping
-`var.github_environment` in sync with the `environment:` set on the `tofu-apply.yml`
-job if you ever rename or remove it (see the comment on that federated credential in
-`bootstrap/main.tf`).
+All three federated-credential subjects (`pull_request`, `environment:production`, and
+the `discover-domains.yml` branch-ref one) are created by `bootstrap` already - nothing
+manual needed there beyond keeping `var.github_environment`/`var.github_default_branch`
+in sync with the `environment:`/branch those workflows actually run under if you ever
+rename or remove either (see the comments on those federated credentials in
+`bootstrap/main.tf`). If you add or change any workflow's trigger/environment, re-run
+`tofu apply` in `bootstrap` before expecting its Azure login step to work.
 
 Consider protecting the `production` GitHub Environment (used by `tofu-apply.yml`)
 with required reviewers if you want a human gate before `main` pushes actually apply.
