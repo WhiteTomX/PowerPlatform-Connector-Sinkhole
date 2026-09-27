@@ -1,9 +1,12 @@
 # Flex Consumption ("FC1"): billed per-execution/GB-s like the old Y1 Consumption
 # plan, but (unlike Y1) supports identity-based access to its host/deployment storage
-# by default - no shared key needed anywhere. Shared by every Function App below
-# regardless of domain count.
+# by default - no shared key needed anywhere. Unlike Y1 (where every app shared one
+# plan), Flex Consumption only allows one app per plan, so there's one of these per
+# tracked domain too.
 resource "azurerm_service_plan" "flex_consumption" {
-  name                = "asp-ppcs"
+  for_each = local.domain_labels
+
+  name                = "asp-${each.key}"
   resource_group_name = data.azurerm_resource_group.main.name
   location            = data.azurerm_resource_group.main.location
   os_type             = "Linux"
@@ -22,14 +25,14 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
   name                = each.key
   resource_group_name = data.azurerm_resource_group.main.name
   location            = data.azurerm_resource_group.main.location
-  service_plan_id     = azurerm_service_plan.flex_consumption.id
+  service_plan_id     = azurerm_service_plan.flex_consumption[each.key].id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.functions.primary_blob_endpoint}${azurerm_storage_container.deployment_package.name}"
   storage_authentication_type = "SystemAssignedIdentity"
 
   runtime_name           = "node"
-  runtime_version        = "20"
+  runtime_version        = "22" # Flex Consumption doesn't support Node.js 20 - only 22 and 24
   maximum_instance_count = 40
   instance_memory_in_mb  = 2048
 
