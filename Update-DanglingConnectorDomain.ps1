@@ -83,15 +83,11 @@
     Azure subscription to check Function App name availability against, and to look for
     already-claimed Function Apps in (see AzureResourceGroupName). Leave null to use the
     az CLI's current subscription, same as the OpenTofu config's var.subscription_id.
-    Requires an `az login`'d session; if az isn't installed or isn't logged in, the
-    availability check is skipped for this run (with a warning) and existing entries keep
-    whatever nameAvailable value they already had.
-
-.PARAMETER SkipAvailabilityCheck
-    If set, skips the Azure name-availability check entirely (e.g. for a quick DNS-only
-    scan with no az CLI/network access to Azure). Existing entries keep whatever
-    nameAvailable value they already had; newly discovered entries get none, so Terraform
-    will not claim them until a later run checks them.
+    Requires an `az login`'d session - this script throws if az isn't installed, isn't
+    logged in, or the check otherwise can't run, rather than silently skipping it: a
+    tracking-file entry with no fresh nameAvailable data is functionally invisible to
+    Terraform (see tofu/locals.tf's filter), so a check that silently didn't run would
+    silently stop new domains from ever being reclaimed.
 
 .EXAMPLE
     .\Update-DanglingConnectorDomain.ps1
@@ -119,8 +115,6 @@ param(
     [string]$AzureResourceGroupName = 'rg-ppcs',
 
     [string]$AzureSubscriptionId,
-
-    [switch]$SkipAvailabilityCheck,
 
     [switch]$SkipClone,
 
@@ -327,13 +321,14 @@ function Set-AzureNameAvailability {
         without a live subscription; the live REST/az CLI calls that build that map live in
         Get-AzureNameAvailabilityMap / Get-ClaimedFunctionAppNames below.
 
-        A domain missing from $AvailabilityMap (the live check errored, was skipped via
-        -SkipAvailabilityCheck, or az wasn't available this run) keeps whatever
-        nameAvailable/nameAvailabilityReason/nameCheckedDate it already had on the existing
-        entry - stale-but-known beats silently downgrading to unknown on a transient
-        failure. A brand new entry missing from the map simply gets none of those
-        properties, which OpenTofu's filter treats as "not yet verified" (excluded) until a
-        later run checks it.
+        In current usage $AvailabilityMap always has an entry for every domain passed to
+        Get-AzureNameAvailabilityMap - that function throws rather than return a partial
+        map (see its own doc comment), and az/auth being unavailable entirely is a hard
+        failure well before this function ever runs. A domain missing from the map is
+        purely a defensive fallback for direct/test callers passing a partial map: it
+        keeps whatever nameAvailable/nameAvailabilityReason/nameCheckedDate the existing
+        entry already had, and a brand new entry gets none of those properties - which
+        OpenTofu's filter treats as "not yet verified" (excluded).
     .OUTPUTS
         [array] of pscustomobjects, one per input entry, in the same order.
     #>
@@ -395,10 +390,10 @@ function Get-ClaimedFunctionAppNames {
         global checkNameAvailability check, same as a name someone else holds - the API
         can't tell "taken by you" from "taken by anyone else" apart. Without this, every
         re-run of this script would flip already-reclaimed domains back out of Terraform's
-        for_each and get them destroyed. Returns an empty set (with a warning) if az isn't
-        installed, isn't logged in, or the resource group doesn't exist yet - callers then
-        just fall through to a live availability check for every domain, same as before
-        this feature existed.
+        for_each and get them destroyed. Throws if az isn't installed/logged in or the
+        listing otherwise fails, rather than degrading to "nothing is claimed by us" - that
+        would risk exactly the destroy-on-next-apply scenario this function exists to
+        prevent, so a failure here must stop the run, not be silently absorbed.
     #>
     param(
         [Parameter(Mandatory)][string]$ResourceGroupName,
@@ -408,17 +403,15 @@ function Get-ClaimedFunctionAppNames {
     $claimed = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 
     if (-not (Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue)) {
-        Write-Warning 'az CLI not found - treating no domains as already-claimed by us this run.'
-        return $claimed
+        throw 'az CLI not found - cannot determine which Function App names this project already claimed.'
     }
 
     $azArgs = @('functionapp', 'list', '--resource-group', $ResourceGroupName, '--query', '[].name', '-o', 'tsv')
     if ($SubscriptionId) { $azArgs += @('--subscription', $SubscriptionId) }
 
-    $names = & az @azArgs 2>$null
+    $names = & az @azArgs 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Could not list Function Apps in resource group '$ResourceGroupName' (not created yet, or az isn't logged in) - treating no domains as already-claimed by us this run."
-        return $claimed
+        throw "Could not list Function Apps in resource group '$ResourceGroupName' (az not logged in? resource group missing?): $names"
     }
 
     foreach ($name in @($names)) {
@@ -442,10 +435,12 @@ function Get-AzureNameAvailabilityMap {
         fetched once via `az account get-access-token` and reused across the parallel
         calls) - NOT `az rest` per-domain, since on Windows `az` is a .cmd shim and its
         re-quoting of a JSON --body argument can silently drop the Content-Type Azure
-        needs, making every call fail. A domain whose call errors out after retries is
-        left out of the returned map entirely (not stamped false) so callers can fall
-        back to a prior known value instead of downgrading to "unavailable" on a
-        transient failure.
+        needs, making every call fail. Each call retries transient failures with backoff,
+        but throws (from inside the parallel scriptblock, which propagates out and stops
+        this function) once retries are exhausted for any domain - a tracking-file entry
+        with stale/no availability data is functionally invisible to Terraform (see
+        tofu/locals.tf), so a check that silently failed for some domains must not look
+        like a check that simply found them unavailable.
     #>
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Domains,
@@ -469,22 +464,19 @@ function Get-AzureNameAvailabilityMap {
     if ($toCheck.Count -eq 0) { return $map }
 
     if (-not (Get-Command -Name az -CommandType Application -ErrorAction SilentlyContinue)) {
-        Write-Warning 'az CLI not found - skipping live Azure name-availability checks this run.'
-        return $map
+        throw 'az CLI not found - cannot check Azure Function App name availability.'
     }
 
     if (-not $SubscriptionId) {
-        $SubscriptionId = (az account show --query id -o tsv 2>$null)
-        if (-not $SubscriptionId) {
-            Write-Warning 'Could not determine an Azure subscription (az not logged in?) - skipping live Azure name-availability checks this run.'
-            return $map
+        $SubscriptionId = (az account show --query id -o tsv 2>&1)
+        if ($LASTEXITCODE -ne 0 -or -not $SubscriptionId) {
+            throw "Could not determine an Azure subscription (az not logged in?): $SubscriptionId"
         }
     }
 
-    $accessToken = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv 2>$null)
-    if (-not $accessToken) {
-        Write-Warning 'Could not obtain an Azure access token (az not logged in?) - skipping live Azure name-availability checks this run.'
-        return $map
+    $accessToken = (az account get-access-token --resource https://management.azure.com --query accessToken -o tsv 2>&1)
+    if ($LASTEXITCODE -ne 0 -or -not $accessToken) {
+        throw "Could not obtain an Azure access token (az not logged in?): $accessToken"
     }
 
     $checkUrl = "https://management.azure.com/subscriptions/$SubscriptionId/providers/Microsoft.Web/checkNameAvailability?api-version=2023-12-01"
@@ -512,19 +504,16 @@ function Get-AzureNameAvailabilityMap {
             }
             catch {
                 if ($attempt -gt $retryCount) {
-                    Write-Verbose "checkNameAvailability failed for '$domain': $($_.Exception.Message)"
-                    break
+                    throw "checkNameAvailability failed for '$domain' after $retryCount retries: $($_.Exception.Message)"
                 }
                 Start-Sleep -Milliseconds (300 * $attempt)
             }
         }
 
-        if ($null -ne $response) {
-            [pscustomobject]@{
-                Domain        = $domain
-                NameAvailable = [bool]$response.nameAvailable
-                Reason        = [string]$response.reason
-            }
+        [pscustomobject]@{
+            Domain        = $domain
+            NameAvailable = [bool]$response.nameAvailable
+            Reason        = [string]$response.reason
         }
     } -ThrottleLimit $ThrottleLimit)
 
@@ -795,7 +784,7 @@ if ($existingEntries.Count -gt 0 -or $azureNxDomains.Count -gt 0) {
         Write-Host "  Added $($update.AddedDomains.Count) new domain(s); $($update.Entries.Count - $update.AddedDomains.Count) pre-existing entry/entries kept. Total tracked: $($update.Entries.Count)." -ForegroundColor Green
     }
 
-    if (-not $SkipAvailabilityCheck -and $update.Entries.Count -gt 0) {
+    if ($update.Entries.Count -gt 0) {
         Write-Host "  Checking Azure Function App name availability for $($update.Entries.Count) tracked domain(s))..." -ForegroundColor Cyan
 
         $claimedLabels   = Get-ClaimedFunctionAppNames -ResourceGroupName $AzureResourceGroupName -SubscriptionId $AzureSubscriptionId
