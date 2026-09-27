@@ -37,7 +37,7 @@ jobs:
 
       - name: tofu init
         run: |
-          tofu init -input=false -lock=false \
+          tofu init -input=false \
             -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.TFSTATE_CONTAINER }}" \
@@ -47,9 +47,7 @@ jobs:
         id: plan
         run: |
           set +e
-          # -lock=false: the plan identity only has read RBAC (see bootstrap/main.tf) and
-          # can't take the state blob lease. Safe here since this job never writes state.
-          tofu plan -input=false -no-color -lock=false -detailed-exitcode 2>&1 | tee plan_output.txt
+          tofu plan -input=false -no-color -detailed-exitcode 2>&1 | tee plan_output.txt
           echo "exitcode=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Comment plan on PR
