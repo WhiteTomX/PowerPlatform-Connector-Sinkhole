@@ -79,12 +79,24 @@ resource "azurerm_role_assignment" "github_actions_plan_workload_reader" {
   principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
 }
 
+# required to read config at plan Microsoft.Web/sites/config/list/action
+resource "azurerm_role_assignment" "github_actions_plan_workload_config_reader" {
+  scope                = azurerm_resource_group.workload.id
+  role_definition_name = "Defender Serverless Scanner"
+  principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
+}
+
+resource "azurerm_role_assignment" "github_actions_plan_workload_blob" {
+  scope                = azurerm_resource_group.workload.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
+}
+
 resource "azurerm_role_assignment" "github_actions_plan_tfstate_blob" {
   scope                = azurerm_storage_account.tfstate.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.github_actions_plan.principal_id
 }
-
 
 resource "azurerm_role_assignment" "github_actions_apply_workload_contributor" {
   for_each = {
@@ -130,7 +142,7 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_uaa" {
       )
       OR
       (
-        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_owner_role_id}}
+        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.storage_blob_data_owner_role_id}}
       )
     )
     AND
@@ -140,7 +152,7 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_uaa" {
       )
       OR
       (
-        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_owner_role_id}}
+        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.storage_blob_data_owner_role_id}}
       )
     )
   COND
