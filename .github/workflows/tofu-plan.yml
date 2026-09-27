@@ -37,7 +37,7 @@ jobs:
 
       - name: tofu init
         run: |
-          tofu init -input=false \
+          tofu init -input=false -lock=false \
             -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ secrets.TFSTATE_CONTAINER }}" \
