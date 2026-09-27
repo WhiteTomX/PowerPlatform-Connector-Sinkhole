@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tofu/**'
+      - 'bootstrap/**'
       - 'UnregisteredAzureWebsitesDomains.json'
       - '.github/workflows/tofu-plan.yml'
       - '.github/workflows/tofu-apply.yml'

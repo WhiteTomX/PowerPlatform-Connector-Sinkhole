@@ -88,8 +88,9 @@ resource "azurerm_role_assignment" "github_actions_plan_tfstate_blob" {
 
 resource "azurerm_role_assignment" "github_actions_apply_workload_contributor" {
   for_each = {
-    "Website Contributor"  = "Required to create functions",
-    "Web Plan Contributor" = "Required to create Service Plan"
+    "Website Contributor"         = "Required to create functions",
+    "Web Plan Contributor"        = "Required to create Service Plan"
+    "Storage Account Contributor" = "Create Storage for dumps"
   }
   scope                = azurerm_resource_group.workload.id
   role_definition_name = each.key
