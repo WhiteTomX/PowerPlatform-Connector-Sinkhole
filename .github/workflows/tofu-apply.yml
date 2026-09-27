@@ -1,0 +1,48 @@
+name: OpenTofu apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tofu/**'
+      - 'UnregisteredAzureWebsitesDomains.json'
+      - '.github/workflows/tofu-apply.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: tofu-apply
+  cancel-in-progress: false
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_APPLY }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_USE_OIDC: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: tofu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: tofu init
+        run: |
+          tofu init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=${{ vars.TFSTATE_KEY }}"
+
+      - name: tofu apply
+        run: tofu apply -input=false -auto-approve -no-color

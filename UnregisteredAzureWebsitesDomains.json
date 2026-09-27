@@ -1,0 +1,72 @@
+[
+  {
+    "domain": "cc-bot-master-server.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\COSMO Bot\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "cdbkeplerprod.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Jupyrest\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "dexmo-powerautomate-functions.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Varuna\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "exghts-ems.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\exghts\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "leaveapiprodv2.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Cloudspark EXP Leave\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "notiivyapi.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Notiivy\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "peltarionforwardtest.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Peltarion\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "secibconnecteurflow.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Secib\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "sl360-prod-bam-functionapp.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\Serverless360\\apiDefinition.swagger.json"
+    ]
+  },
+  {
+    "domain": "vragroupmanagerapprovalflow-h8tvt-uzi02fbsspubp3eg.azurewebsites.net",
+    "dateAdded": "2026-09-26",
+    "connectors": [
+      "certified-connectors\\GroupMgr\\apiDefinition.swagger.json"
+    ]
+  }
+]
