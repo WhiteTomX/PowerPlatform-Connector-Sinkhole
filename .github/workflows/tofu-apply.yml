@@ -7,6 +7,7 @@ on:
       - 'tofu/**'
       - 'UnregisteredAzureWebsitesDomains.json'
       - '.github/workflows/tofu-apply.yml'
+      - '.github/workflows/tofu-plan.yml'
 
 permissions:
   contents: read
