@@ -31,10 +31,15 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
   storage_container_endpoint  = "${azurerm_storage_account.functions.primary_blob_endpoint}${azurerm_storage_container.deployment_package.name}"
   storage_authentication_type = "SystemAssignedIdentity"
 
-  runtime_name           = "node"
-  runtime_version        = "22" # Flex Consumption doesn't support Node.js 20 - only 22 and 24
-  maximum_instance_count = 40
-  instance_memory_in_mb  = 2048
+  runtime_name    = "node"
+  runtime_version = "22" # Flex Consumption doesn't support Node.js 20 - only 22 and 24
+
+  # Each domain gets almost no real traffic (it's dangling), and dump.js does one
+  # cheap JSON-stringify-and-write per request - smallest instance size is plenty,
+  # and a low ceiling also bounds the bill if someone tries to hammer a reclaimed
+  # domain to run up costs.
+  maximum_instance_count = 5
+  instance_memory_in_mb  = 512
 
   identity {
     type = "SystemAssigned"
