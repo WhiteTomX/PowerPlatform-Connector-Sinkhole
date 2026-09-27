@@ -130,7 +130,7 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_uaa" {
       )
       OR
       (
-        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_owner_role_id}}
+        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.storage_blob_data_owner_role_id}}
       )
     )
     AND
@@ -140,7 +140,7 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_uaa" {
       )
       OR
       (
-        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] {ForAnyOfAnyValues:GuidEquals} {${local.storage_blob_data_owner_role_id}}
+        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.storage_blob_data_owner_role_id}}
       )
     )
   COND
