@@ -87,8 +87,12 @@ resource "azurerm_role_assignment" "github_actions_plan_tfstate_blob" {
 
 
 resource "azurerm_role_assignment" "github_actions_apply_workload_contributor" {
+  for_each = {
+    "Website Contributor"  = "Required to create functions",
+    "Web Plan Contributor" = "Required to create Service Plan"
+  }
   scope                = azurerm_resource_group.workload.id
-  role_definition_name = "Website Contributor"
+  role_definition_name = each.key
   principal_id         = azurerm_user_assigned_identity.github_actions_apply.principal_id
 }
 
