@@ -23,14 +23,9 @@ resource "azurerm_storage_account" "dumps" {
   account_replication_type = "LRS"
   min_tls_version          = "TLS1_2"
 
-  # No static website / public blob access - dumps are only ever read via
-  # authenticated `az storage blob` calls (see README) for triage, never served back out.
   allow_nested_items_to_be_public = false
 }
 
-# Each captured POST/PUT lands as one blob here at "<domain-label>/<rand-guid>.raw"
-# containing the raw method/url/headers/body - nothing is parsed or forwarded into
-# a logging/observability pipeline, so review happens by listing/downloading blobs.
 resource "azurerm_storage_container" "dumps" {
   name                  = "dumps"
   storage_account_id    = azurerm_storage_account.dumps.id
@@ -56,14 +51,4 @@ resource "azurerm_storage_management_policy" "dumps_expiry" {
       }
     }
   }
-}
-
-# Consumption ("Y1") plan: billed per-execution/GB-s with a substantial monthly free
-# grant, $0 while idle, and shared by every Function App below regardless of domain count.
-resource "azurerm_service_plan" "consumption" {
-  name                = "asp-ppcs"
-  resource_group_name = data.azurerm_resource_group.main.name
-  location            = data.azurerm_resource_group.main.location
-  os_type             = "Linux"
-  sku_name            = "Y1"
 }
