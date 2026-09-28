@@ -9,7 +9,7 @@
     dot-sourcing the script (which only defines functions and returns when dot-sourced -
     it does not clone the repo, hit DNS, or write any output files).
 
-    Deliberately out of scope: the git clone/pull, the Resolve-DnsName parallel checks,
+    Deliberately out of scope: the git clone/pull, the Resolve-Dns (DnsClient-PS) parallel checks,
     and CSV export. Those need a live repo checkout and/or network access and run inside
     ForEach-Object -Parallel runspaces that Pester's Mock cannot intercept, so they are
     left to be exercised manually / in a real run rather than unit-tested here.

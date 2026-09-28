@@ -25,6 +25,10 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Install DnsClient-PS module
+        shell: pwsh
+        run: Install-Module -Name DnsClient-PS -Scope CurrentUser -Force -ErrorAction Stop
+
       - name: Run domain discovery script
         shell: pwsh
         run: ./Update-DanglingConnectorDomain.ps1 -AzureSubscriptionId '${{ secrets.AZURE_SUBSCRIPTION_ID }}'
