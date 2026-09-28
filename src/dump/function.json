@@ -5,7 +5,10 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": ["post", "put"],
+      "methods": [
+        "post",
+        "put"
+      ],
       "route": "{*rest}"
     },
     {
@@ -17,8 +20,8 @@
       "type": "blob",
       "direction": "out",
       "name": "outputBlob",
-      "path": "dumps/%DOMAIN_LABEL%/{rand-guid}.raw",
-      "connection": "AzureWebJobsStorage"
+      "path": "dumps/%DOMAIN_LABEL%/{rand-guid}.json",
+      "connection": "dumps"
     }
   ]
 }

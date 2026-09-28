@@ -17,7 +17,7 @@ variable "github_repository" {
 }
 
 variable "github_environment" {
-  description = "GitHub Environment name used by the tofu-apply job (.github/workflows/tofu-apply.yml sets `environment:` on that job, which changes its OIDC subject claim to this environment rather than the branch ref)."
+  description = "GitHub Environment name used by the deploy job (.github/workflows/deploy.yml sets `environment:` on that job, which changes its OIDC subject claim to this environment rather than the branch ref)."
   type        = string
   default     = "production"
 }

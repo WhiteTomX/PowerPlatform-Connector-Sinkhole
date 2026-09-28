@@ -59,6 +59,7 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
     # of a shared key, since the functions account has none.
     AzureWebJobsStorage              = "" # workaround until https://github.com/hashicorp/terraform-provider-azurerm/pull/29099 is released
     AzureWebJobsStorage__accountName = azurerm_storage_account.functions.name
+    dumps__blobServiceUri            = "https://${azurerm_storage_account.functions.name}.blob.core.windows.net"
   }
 
   tags = {

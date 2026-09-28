@@ -1,0 +1,86 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tofu/**'
+      - 'bootstrap/**'
+      - 'src/**'
+      - 'UnregisteredAzureWebsitesDomains.json'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/tofu-plan.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_APPLY }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_USE_OIDC: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: tofu apply
+        id: tofu_apply
+        uses: dflook/tofu-apply@e3e5dfc8f935d4b152c767801046f63abf8a77d3 # v3.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path: tofu
+          auto_approve: ${{ github.event_name == 'workflow_dispatch' }}
+          backend_config: |
+            resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}
+            storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+            container_name=${{ secrets.TFSTATE_CONTAINER }}
+            key=${{ secrets.TFSTATE_KEY }}
+
+      # Flex Consumption only runs a package that was pushed through a real
+      # deployment call (az CLI's config-zip hits the app's /api/publish
+      # endpoint) - a blob just dropped into the deployment storage container,
+      # which is all `tofu apply` above provisions, is never picked up. So the
+      # actual code deploy happens here, once per catcher app, after the infra
+      # (and its role assignments) exist.
+      - name: Azure login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_APPLY }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build function package
+        run: |
+          cd src
+          zip -r ../function-package.zip .
+
+      - name: Deploy function package to every catcher app
+        env:
+          # dflook/tofu-apply writes every root module output to this file
+          # (output name -> value) - read the apps/resource group tofu actually
+          # created from there instead of re-deriving them from the tracking JSON.
+          TOFU_OUTPUTS: ${{ steps.tofu_apply.outputs.json_output_path }}
+        run: |
+          set -euo pipefail
+          resource_group_name=$(jq -r '.resource_group_name' "$TOFU_OUTPUTS")
+          jq -r '.reclaimed_domains | keys[]' "$TOFU_OUTPUTS" |
+          while IFS= read -r app; do
+            echo "Deploying to $app"
+            az functionapp deployment source config-zip \
+              --resource-group "$resource_group_name" \
+              --name "$app" \
+              --src function-package.zip
+          done
