@@ -1,3 +1,5 @@
+#Requires -Modules DnsClient-PS
+
 <#
 .SYNOPSIS
     Finds broken/dangling connector hosts in microsoft/PowerPlatformConnectors -
@@ -579,6 +581,13 @@ if ($hostMap.Count -eq 0) {
 
 #region DNS check (parallel) - does the literal host still exist at all?
 
+# Resolve-DnsName (the inbox DnsClient module) only ships on Windows - it doesn't exist
+# on Linux runners, where every call failed with a "command not found" error that (being
+# neither NXDOMAIN pattern the old code matched on) always fell through to "Unknown"
+# after retries. DnsClient-PS (https://github.com/rmbolger/DnsClient-PS) wraps the
+# cross-platform DnsClient.NET library instead, so the same Resolve-Dns call works on
+# Windows, Linux, and macOS runners alike (the #Requires above enforces it's installed).
+
 Write-Host "Checking DNS for $($hostMap.Count) hosts (throttle=$ThrottleLimit)..." -ForegroundColor Cyan
 
 $hostsToCheck = $hostMap.Keys
@@ -586,6 +595,10 @@ $hostsToCheck = $hostMap.Keys
 $results = @($hostsToCheck | ForEach-Object -Parallel {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
+
+    # ForEach-Object -Parallel runspaces don't inherit modules imported in the parent
+    # scope, so this has to be (re-)imported per runspace.
+    Import-Module DnsClient-PS -ErrorAction Stop
 
     $hostName   = $_
     $retryCount = $using:RetryCount
@@ -597,21 +610,22 @@ $results = @($hostsToCheck | ForEach-Object -Parallel {
         while ($true) {
             $attempt++
             try {
-                # A_AAAA follows CNAME chains too, so this correctly reflects
-                # whether the literal connector host still resolves at all.
-                Resolve-DnsName -Name $HostName -Type A_AAAA -ErrorAction Stop | Out-Null
+                # Querying A is enough to tell NXDOMAIN from registered even for an
+                # AAAA-only host, since the response code doesn't depend on which
+                # record type has an answer - and CNAME chains are still followed,
+                # since Resolve-Dns performs full recursive resolution before replying.
+                $response = Resolve-Dns -Query $HostName -QueryType A -ErrorAction Stop
+                if ($response.Header.ResponseCode -eq 'NotExistentDomain') {
+                    return 'NXDOMAIN'
+                }
+                if ($response.HasError) {
+                    throw $response.ErrorMessage
+                }
                 return 'Registered'
             }
             catch {
-                $msg = $_.Exception.Message
-
-                # "DNS name does not exist" == authoritative NXDOMAIN for this exact name
-                if ($msg -match 'DNS name does not exist' -or $msg -match 'RCODE_NAME_ERROR') {
-                    return 'NXDOMAIN'
-                }
-
                 if ($attempt -gt $Retries) {
-                    return "Unknown ($msg)"
+                    return "Unknown ($($_.Exception.Message))"
                 }
                 Start-Sleep -Milliseconds (300 * $attempt)
             }
@@ -650,6 +664,8 @@ if ($apexesToCheck.Count -gt 0) {
         Set-StrictMode -Version Latest
         $ErrorActionPreference = 'Stop'
 
+        Import-Module DnsClient-PS -ErrorAction Stop
+
         $apexDomain = $_
         $retryCount = $using:RetryCount
 
@@ -662,16 +678,18 @@ if ($apexesToCheck.Count -gt 0) {
                 try {
                     # NS is the right record type at an apex: a registered/delegated
                     # domain always has NS records, even with no website behind it.
-                    Resolve-DnsName -Name $ApexDomain -Type NS -ErrorAction Stop | Out-Null
+                    $response = Resolve-Dns -Query $ApexDomain -QueryType NS -ErrorAction Stop
+                    if ($response.Header.ResponseCode -eq 'NotExistentDomain') {
+                        return 'NXDOMAIN'
+                    }
+                    if ($response.HasError) {
+                        throw $response.ErrorMessage
+                    }
                     return 'Registered'
                 }
                 catch {
-                    $msg = $_.Exception.Message
-                    if ($msg -match 'DNS name does not exist' -or $msg -match 'RCODE_NAME_ERROR') {
-                        return 'NXDOMAIN'
-                    }
                     if ($attempt -gt $Retries) {
-                        return "Unknown ($msg)"
+                        return "Unknown ($($_.Exception.Message))"
                     }
                     Start-Sleep -Milliseconds (300 * $attempt)
                 }
