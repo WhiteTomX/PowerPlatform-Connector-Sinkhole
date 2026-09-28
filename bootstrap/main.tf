@@ -36,6 +36,14 @@ resource "azurerm_role_assignment" "bootstrap_caller_tfstate_blob" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+# Whoever runs this bootstrap (a user via `az login`, or a pipeline identity) needs
+# to read the workloads storage account, so functions are shown properly
+resource "azurerm_role_assignment" "bootstrap_caller_workload_blob" {
+  scope                = azurerm_resource_group.workload.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 resource "azurerm_storage_container" "tfstate" {
   name                  = var.tfstate_container_name
   storage_account_id    = azurerm_storage_account.tfstate.id
