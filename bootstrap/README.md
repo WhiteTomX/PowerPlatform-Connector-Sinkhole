@@ -9,7 +9,7 @@ on, so it can't depend on either of those itself:
 - the workload resource group (`data.azurerm_resource_group.main` in `../tofu/storage.tf` just reads this)
 - two user-assigned managed identities for GitHub Actions, each with a federated credential trusting this repo's OIDC tokens for one workflow:
   - `id-github-actions-ppcs-plan`, for `tofu-plan.yml` (pull_request trigger) - read-only: `Reader` on the workload resource group, `Storage Blob Data Reader` on the tfstate account
-  - `id-github-actions-ppcs-apply`, for `tofu-apply.yml` (`environment: production` trigger) - read-write: `Contributor` on the workload resource group, `Storage Blob Data Contributor` on the tfstate account
+  - `id-github-actions-ppcs-apply`, for `deploy.yml` (`environment: production` trigger) - read-write: `Contributor` on the workload resource group, `Storage Blob Data Contributor` on the tfstate account
 
 If `var.github_repository` or `var.workload_resource_group_name` in
 `variables.tf` don't match your actual repo / desired resource group name,

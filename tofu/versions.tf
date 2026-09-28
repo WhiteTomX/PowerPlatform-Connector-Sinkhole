@@ -10,10 +10,6 @@ terraform {
       source  = "hashicorp/random"
       version = "3.9.1"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "2.7.1"
-    }
   }
 
   backend "azurerm" {

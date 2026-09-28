@@ -38,7 +38,11 @@ resource "azurerm_storage_container" "dumps" {
 }
 
 # Holds the zipped function code package every catcher app runs from - identical
-# across all of them, so one shared container/blob is enough.
+# across all of them, so one shared container/blob is enough. Terraform only
+# declares the container; the deploy workflow's deploy step is what actually
+# pushes a package into it and activates it (Flex Consumption only recognizes a
+# package pushed through a real deployment call - a blob dropped into this
+# container directly never gets picked up, see functions-deployment-technologies).
 resource "azurerm_storage_container" "deployment_package" {
   name                  = "deployment-package"
   storage_account_id    = azurerm_storage_account.functions.id

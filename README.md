@@ -74,7 +74,11 @@ Three workflows automate the whole loop:
   dangling domains showed up.
 - **`tofu-plan.yml`** (on PRs touching `tofu/**` or the tracking JSON) - runs
   `tofu plan` and posts/updates a single PR comment with the result.
-- **`tofu-apply.yml`** (on push to `main`) - runs `tofu apply -auto-approve`.
+- **`deploy.yml`** (on push to `main`) - runs `tofu apply -auto-approve`, then
+  builds `src/` into a package and deploys it to every catcher app via
+  `az functionapp deployment source config-zip` (Flex Consumption only runs a
+  package pushed through a real deployment call, not one just uploaded to blob
+  storage).
 
 Required repository configuration (Settings -> Secrets and variables -> Actions).
 Everything is a secret, even the non-sensitive tfstate backend coordinates - so
@@ -85,7 +89,7 @@ exposed to anyone who can merely read the repo:
 | Name | Type | Source / purpose |
 | --- | --- | --- |
 | `AZURE_CLIENT_ID_PLAN` | secret | `bootstrap` output `github_actions_plan_client_id` - read-only identity `tofu-plan.yml` and `discover-domains.yml` (for its Azure Function App name-availability check) authenticate as via OIDC |
-| `AZURE_CLIENT_ID_APPLY` | secret | `bootstrap` output `github_actions_apply_client_id` - read-write identity `tofu-apply.yml` authenticates as via OIDC |
+| `AZURE_CLIENT_ID_APPLY` | secret | `bootstrap` output `github_actions_apply_client_id` - read-write identity `deploy.yml` authenticates as via OIDC (both for `tofu apply` and for the `az functionapp deployment` step) |
 | `AZURE_TENANT_ID` | secret | `bootstrap` output `azure_tenant_id` |
 | `AZURE_SUBSCRIPTION_ID` | secret | `bootstrap` output `azure_subscription_id` |
 | `TFSTATE_RESOURCE_GROUP` | secret | `bootstrap` output `tfstate_resource_group_name` |
@@ -102,7 +106,7 @@ rename or remove either (see the comments on those federated credentials in
 `bootstrap/main.tf`). If you add or change any workflow's trigger/environment, re-run
 `tofu apply` in `bootstrap` before expecting its Azure login step to work.
 
-Consider protecting the `production` GitHub Environment (used by `tofu-apply.yml`)
+Consider protecting the `production` GitHub Environment (used by `deploy.yml`)
 with required reviewers if you want a human gate before `main` pushes actually apply.
 
 ## Review and clear captured requests
