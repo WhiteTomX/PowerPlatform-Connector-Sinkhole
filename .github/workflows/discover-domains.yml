@@ -5,6 +5,11 @@ on:
   schedule:
     # Weekly, Monday 06:46 UTC.
     - cron: '46 6 * * 1'
+  pull_request: 
+    paths: 
+      - .github\workflows\discover-domains.yml
+      - Update-DanglingConnectorDomain.ps1
+    branches: [main]
 
 permissions:
   contents: write
@@ -56,3 +61,4 @@ jobs:
           add-paths: UnregisteredAzureWebsitesDomains.json
           delete-branch: true
           reviewers: WhiteTomX
+          base: main
