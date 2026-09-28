@@ -4,62 +4,89 @@
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\COSMO Bot\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": true,
+    "nameAvailabilityReason": "AlreadyClaimedByUs",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "cdbkeplerprod.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\Jupyrest\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "dexmo-powerautomate-functions.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\Varuna\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": true,
+    "nameAvailabilityReason": "AlreadyClaimedByUs",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "exghts-ems.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\exghts\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "leaveapiprodv2.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\Cloudspark EXP Leave\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": true,
+    "nameAvailabilityReason": "AlreadyClaimedByUs",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "notiivyapi.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\Notiivy\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "secibconnecteurflow.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\Secib\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": true,
+    "nameAvailabilityReason": "AlreadyClaimedByUs",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "sl360-prod-bam-functionapp.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\Serverless360\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-09-28"
   },
   {
     "domain": "vragroupmanagerapprovalflow-h8tvt-uzi02fbsspubp3eg.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
       "certified-connectors\\GroupMgr\\apiDefinition.swagger.json"
-    ]
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-09-28"
   }
 ]
