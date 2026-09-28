@@ -119,11 +119,7 @@ resource "azurerm_role_assignment" "github_actions_apply_workload_contributor" {
     "Website Contributor"         = "Required to create functions",
     "Web Plan Contributor"        = "Required to create Service Plan"
     "Storage Account Contributor" = "Create Storage for dumps"
-    # Data-plane role: Contributor above is ARM/management-plane only and can't
-    # create containers or upload the deployment package blob once the functions
-    # account has shared_access_key_enabled = false (see storage_use_azuread in
-    # tofu/versions.tf).
-    "Storage Blob Data Contributor" = "Create dumps/deployment-package containers and upload the function's deployment zip"
+    "Log Analytics Contributor"   = "Application Insights"
   }
   scope                = azurerm_resource_group.workload.id
   role_definition_name = each.key
