@@ -45,10 +45,9 @@ resource "azurerm_function_app_flex_consumption" "catcher" {
     type = "SystemAssigned"
   }
 
-  # No Application Insights connection configured anywhere in this app - keeps the
-  # only copy of captured request content in the blob written by dump.js, never in
-  # a telemetry/log pipeline.
-  site_config {}
+  site_config {
+    application_insights_connection_string = azurerm_application_insights.catcher.connection_string
+  }
 
   app_settings = {
     DOMAIN_LABEL = each.key
