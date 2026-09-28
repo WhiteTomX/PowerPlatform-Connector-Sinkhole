@@ -106,7 +106,7 @@
 param(
     [string]$RepoUrl = 'https://github.com/microsoft/PowerPlatformConnectors.git',
 
-    [string]$ClonePath = (Join-Path $env:TEMP 'PowerPlatformConnectors'),
+    [string]$ClonePath = (Join-Path ([System.IO.Path]::GetTempPath()) 'PowerPlatformConnectors'),
 
     [string]$OutputCsv = '.\UnregisteredConnectorDomains.csv',
 
