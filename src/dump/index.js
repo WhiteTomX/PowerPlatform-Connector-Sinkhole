@@ -3,8 +3,9 @@
 // reclaimed for research - anyone still sending it requests should know their
 // content is no longer private to the original owner). Deliberately does NOT
 // context.log() the body/headers anywhere - the only copy of the content is the
-// blob itself, so it stays out of Application Insights / any log pipeline and is
-// only visible to whoever reads the blob.
+// blob itself, so it stays out of Application Insights (now wired up for failure
+// visibility - see tofu/monitoring.tf - but only ever sees what this file logs) and
+// is only visible to whoever reads the blob.
 const GONE_MESSAGE = [
     "410 Gone",
     "",

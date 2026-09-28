@@ -14,8 +14,10 @@ domain's label (a Function App's default hostname is always
 `<name>.azurewebsites.net`, so creating the app *is* the claim). Each app
 accepts any POST/PUT at any path, writes the raw request (method, URL, headers,
 body) as a blob, and responds `410 Gone` with a notice that the domain is
-dangling/reclaimed - nothing is parsed, indexed, or sent to a logging/telemetry
-pipeline.
+dangling/reclaimed - the captured content itself is never parsed, indexed, or
+sent to a logging/telemetry pipeline, though a shared Application Insights
+instance (see `tofu/monitoring.tf`) does track each invocation's success/failure
+so a broken run doesn't go unnoticed.
 
 The domain list is the sole input to `tofu/`: add/remove an entry in the JSON
 file and re-apply to add/remove the matching Function App.
@@ -25,7 +27,7 @@ file and re-apply to add/remove the matching Function App.
 - `Update-DanglingConnectorDomain.ps1` / `.Tests.ps1` - the scanner and its Pester unit tests
 - `UnregisteredAzureWebsitesDomains.json` - tracked dangling domains (the infra input)
 - `src/` - the catch-all dump function's source, deployed identically into every Function App
-- `tofu/` - the main OpenTofu config (Function Apps, storage, dump-retention policy)
+- `tofu/` - the main OpenTofu config (Function Apps, storage, dump-retention policy, monitoring)
 - `bootstrap/` - one-time setup: state backend + CI identity (see below)
 - `.github/workflows/` - automation tying it all together (see below)
 
@@ -34,7 +36,10 @@ file and re-apply to add/remove the matching Function App.
 Everything runs on the Consumption plan (`Y1`), billed per-execution/GB-s with a large
 monthly free grant shared across all apps - effectively $0/month at dangling-domain
 traffic volumes. The only always-on cost is the Standard LRS storage account
-(pennies/month for this volume of blobs).
+(pennies/month for this volume of blobs) plus the one shared Log Analytics
+workspace/Application Insights instance backing every app's execution telemetry -
+also effectively free at this data volume (well under the free monthly ingestion
+grant).
 
 ## Tests
 
