@@ -3,8 +3,13 @@ name: Discover dangling connector domains
 on:
   workflow_dispatch: {}
   schedule:
-    # Weekly, Monday 06:00 UTC.
-    - cron: '0 6 * * 1'
+    # Weekly, Monday 06:46 UTC.
+    - cron: '46 6 * * 1'
+  pull_request: 
+    paths: 
+      - .github\workflows\discover-domains.yml
+      - Update-DanglingConnectorDomain.ps1
+    branches: [main]
 
 permissions:
   contents: write
@@ -40,15 +45,6 @@ jobs:
           path: UnregisteredConnectorDomains.csv
           retention-days: 14
 
-      # Only the azurewebsites.net tracking JSON is committed - the broader CSV
-      # (every unregistered connector domain, not just azurewebsites.net) stays an
-      # artifact for manual triage, it isn't infrastructure input.
-      #
-      # Note: this uses the default GITHUB_TOKEN, which means the PR it opens will
-      # NOT trigger tofu-plan.yml (GitHub suppresses workflow-triggered-workflow
-      # runs from the default token to prevent loops). Set secrets.INFRA_PR_TOKEN to
-      # a PAT or GitHub App token with contents+pull-requests write for that to work;
-      # otherwise re-run tofu-plan manually (or push an empty commit) on the PR.
       - name: Open PR with updated domain tracking
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
@@ -61,12 +57,8 @@ jobs:
             The full CSV of every unregistered connector domain (not just
             azurewebsites.net) is attached as a workflow artifact on the run that
             opened this PR, for manual triage.
-
-            Merging this will cause `tofu apply` (on push to main) to create a
-            catcher Function App for any newly added domain, and destroy the
-            Function App for any domain removed here - but only for entries whose
-            `nameAvailable` is `true`; see each entry's `nameAvailabilityReason`/
-            `nameCheckedDate` for domains currently skipped as unclaimable.
           branch: automation/dangling-domain-tracking
           add-paths: UnregisteredAzureWebsitesDomains.json
           delete-branch: true
+          reviewers: WhiteTomX
+          base: main
