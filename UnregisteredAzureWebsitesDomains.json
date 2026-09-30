@@ -60,6 +60,16 @@
     "nameCheckedDate": "2026-09-28"
   },
   {
+    "domain": "peltarionforwardtest.azurewebsites.net",
+    "dateAdded": "2026-09-28",
+    "connectors": [
+      "certified-connectors/Peltarion/apiDefinition.swagger.json"
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-09-28"
+  },
+  {
     "domain": "secibconnecteurflow.azurewebsites.net",
     "dateAdded": "2026-09-26",
     "connectors": [
