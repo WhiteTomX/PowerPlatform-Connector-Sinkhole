@@ -7,7 +7,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "cdbkeplerprod.azurewebsites.net",
@@ -17,7 +17,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "dexmo-powerautomate-functions.azurewebsites.net",
@@ -27,7 +27,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "exghts-ems.azurewebsites.net",
@@ -37,7 +37,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "leaveapiprodv2.azurewebsites.net",
@@ -47,7 +47,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "notiivyapi.azurewebsites.net",
@@ -57,7 +57,19 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
+  },
+  {
+    "domain": "onefoxdev-pac.azurewebsites.net",
+    "dateAdded": "2026-10-05",
+    "connectors": [
+      "certified-connectors/OpenText ContentServer by One Fox/apiDefinition.swagger.json",
+      "certified-connectors/OpenText Core Share/apiDefinition.swagger.json",
+      "certified-connectors/OpenText eDOCS by One Fox/apiDefinition.swagger.json"
+    ],
+    "nameAvailable": false,
+    "nameAvailabilityReason": "AlreadyExists",
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "peltarionforwardtest.azurewebsites.net",
@@ -67,7 +79,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "secibconnecteurflow.azurewebsites.net",
@@ -77,7 +89,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "sl360-prod-bam-functionapp.azurewebsites.net",
@@ -87,7 +99,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   },
   {
     "domain": "vragroupmanagerapprovalflow-h8tvt-uzi02fbsspubp3eg.azurewebsites.net",
@@ -97,6 +109,6 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-09-28"
+    "nameCheckedDate": "2026-10-05"
   }
 ]
