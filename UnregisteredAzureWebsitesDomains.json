@@ -7,7 +7,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "cdbkeplerprod.azurewebsites.net",
@@ -17,7 +17,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "dexmo-powerautomate-functions.azurewebsites.net",
@@ -27,7 +27,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "exghts-ems.azurewebsites.net",
@@ -37,7 +37,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "leaveapiprodv2.azurewebsites.net",
@@ -47,7 +47,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "notiivyapi.azurewebsites.net",
@@ -57,7 +57,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "onefoxdev-pac.azurewebsites.net",
@@ -69,7 +69,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "peltarionforwardtest.azurewebsites.net",
@@ -79,7 +79,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "secibconnecteurflow.azurewebsites.net",
@@ -89,7 +89,7 @@
     ],
     "nameAvailable": true,
     "nameAvailabilityReason": "AlreadyClaimedByUs",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "sl360-prod-bam-functionapp.azurewebsites.net",
@@ -99,7 +99,7 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   },
   {
     "domain": "vragroupmanagerapprovalflow-h8tvt-uzi02fbsspubp3eg.azurewebsites.net",
@@ -109,6 +109,6 @@
     ],
     "nameAvailable": false,
     "nameAvailabilityReason": "AlreadyExists",
-    "nameCheckedDate": "2026-10-05"
+    "nameCheckedDate": "2026-10-12"
   }
 ]
