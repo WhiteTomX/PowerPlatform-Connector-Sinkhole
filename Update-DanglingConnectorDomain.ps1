@@ -871,7 +871,7 @@ if ($existingEntries.Count -gt 0 -or $azureNxDomains.Count -gt 0) {
     }
 
     Write-Host "  Wrote $($update.Entries.Count) entrie(s) to '$AzureWebsitesTrackingFile'." -ForegroundColor Green
-    Write-Host "  Meaningful change (domain added/removed, or availability flipped): $hasTrackingChanges" -ForegroundColor (if ($hasTrackingChanges) { 'Green' } else { 'DarkGray' })
+    Write-Host "  Meaningful change (domain added/removed, or availability flipped): $hasTrackingChanges" -ForegroundColor $(if ($hasTrackingChanges) { 'Green' } else { 'DarkGray' })
 }
 
 # Surface the result to the calling workflow so it can skip opening a PR for a run that
