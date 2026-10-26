@@ -75,8 +75,10 @@ Three workflows automate the whole loop:
 
 - **`discover-domains.yml`** (weekly + manual) - runs
   `Update-DanglingConnectorDomain.ps1`, uploads the full CSV as a build
-  artifact, and opens a PR against `UnregisteredAzureWebsitesDomains.json` if new
-  dangling domains showed up.
+  artifact, and opens a PR against `UnregisteredAzureWebsitesDomains.json` only
+  if a domain was added/removed or an existing domain's reclaim availability
+  changed - a run that only refreshes everyone's `nameCheckedDate` stamp is not
+  treated as a change, so it does not open a PR.
 - **`tofu-plan.yml`** (on PRs touching `tofu/**` or the tracking JSON) - runs
   `tofu plan` and posts/updates a single PR comment with the result.
 - **`deploy.yml`** (on push to `main`) - runs `tofu apply -auto-approve`, then
