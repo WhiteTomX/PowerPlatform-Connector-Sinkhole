@@ -378,6 +378,47 @@ function Set-AzureNameAvailability {
     }
 }
 
+function Test-TrackingFileChanged {
+    <#
+    .SYNOPSIS
+        Returns whether $NewEntries differs meaningfully from $ExistingEntries - i.e. a
+        domain was added or removed, or a kept domain's nameAvailable/nameAvailabilityReason
+        actually changed - ignoring nameCheckedDate.
+    .DESCRIPTION
+        nameCheckedDate is restamped on every run regardless of whether anything else
+        changed (see Set-AzureNameAvailability), which would otherwise make every weekly
+        run look like a change worth opening a PR for. This compares everything BUT that
+        field, so a run that only refreshes the check date reports no change, while an
+        add/remove/availability-flip still does. Pure function - no file I/O - so it's
+        unit-testable like the other helpers above.
+    .OUTPUTS
+        [bool]
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][array]$ExistingEntries,
+        [Parameter(Mandatory)][AllowEmptyCollection()][array]$NewEntries
+    )
+
+    function ConvertTo-ComparableEntries {
+        param([array]$Entries)
+
+        @($Entries | ForEach-Object {
+            [pscustomobject]@{
+                domain                 = $_.domain
+                dateAdded              = $_.dateAdded
+                connectors             = @($_.connectors | Sort-Object)
+                nameAvailable          = if ($_.PSObject.Properties.Name -contains 'nameAvailable') { $_.nameAvailable } else { $null }
+                nameAvailabilityReason = if ($_.PSObject.Properties.Name -contains 'nameAvailabilityReason') { $_.nameAvailabilityReason } else { $null }
+            }
+        } | Sort-Object domain)
+    }
+
+    $existingJson = ConvertTo-ComparableEntries -Entries $ExistingEntries | ConvertTo-Json -Depth 5 -Compress -AsArray
+    $newJson      = ConvertTo-ComparableEntries -Entries $NewEntries      | ConvertTo-Json -Depth 5 -Compress -AsArray
+
+    return $existingJson -ne $newJson
+}
+
 #endregion
 
 #region Azure Function App name-availability check (live - needs an `az login`'d session; kept above the dot-source guard so Pester CAN mock/call these directly if ever needed, unlike the clone/DNS logic below)
@@ -775,6 +816,12 @@ Write-Host "Wrote $($toExport.Count) row(s) to '$OutputCsv'." -ForegroundColor G
 
 $azureNxDomains = @($nxRows | Where-Object { $_.ApexDomain -eq 'azurewebsites.net' } | ForEach-Object { $_.Domain })
 
+# Whether the tracking file changed in any way that matters (domain added/removed, or an
+# existing domain's reclaim availability flipped) - as opposed to every entry's
+# nameCheckedDate simply being restamped to today, which happens on every run regardless.
+# Drives the "only open a PR when a domain was added or removed" gate in the workflow.
+$hasTrackingChanges = $false
+
 $existingEntries = @()
 if (Test-Path -LiteralPath $AzureWebsitesTrackingFile) {
     $existingContent = Get-Content -LiteralPath $AzureWebsitesTrackingFile -Raw -ErrorAction Stop
@@ -814,6 +861,8 @@ if ($existingEntries.Count -gt 0 -or $azureNxDomains.Count -gt 0) {
         Write-Host "  $checkedCt of $($update.Entries.Count) domain(s) checked just now; $availableCt of $($update.Entries.Count) currently have an available/already-claimed-by-us name (safe for Terraform to claim)." -ForegroundColor Green
     }
 
+    $hasTrackingChanges = Test-TrackingFileChanged -ExistingEntries $existingEntries -NewEntries $update.Entries
+
     if ($update.Entries.Count -eq 0) {
         Set-Content -LiteralPath $AzureWebsitesTrackingFile -Value '[]' -Encoding UTF8 -ErrorAction Stop
     }
@@ -822,6 +871,14 @@ if ($existingEntries.Count -gt 0 -or $azureNxDomains.Count -gt 0) {
     }
 
     Write-Host "  Wrote $($update.Entries.Count) entrie(s) to '$AzureWebsitesTrackingFile'." -ForegroundColor Green
+    Write-Host "  Meaningful change (domain added/removed, or availability flipped): $hasTrackingChanges" -ForegroundColor (if ($hasTrackingChanges) { 'Green' } else { 'DarkGray' })
+}
+
+# Surface the result to the calling workflow so it can skip opening a PR for a run that
+# only restamped nameCheckedDate - $env:GITHUB_OUTPUT is unset outside Actions (e.g. a
+# local/manual run), so this is a no-op there.
+if ($env:GITHUB_OUTPUT) {
+    "has-changes=$($hasTrackingChanges.ToString().ToLowerInvariant())" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
 }
 
 #endregion

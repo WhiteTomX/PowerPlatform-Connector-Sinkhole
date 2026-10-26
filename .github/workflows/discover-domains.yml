@@ -35,6 +35,7 @@ jobs:
         run: Install-Module -Name DnsClient-PS -Scope CurrentUser -Force -ErrorAction Stop
 
       - name: Run domain discovery script
+        id: discover
         shell: pwsh
         run: ./Update-DanglingConnectorDomain.ps1 -AzureSubscriptionId '${{ secrets.AZURE_SUBSCRIPTION_ID }}'
 
@@ -46,6 +47,7 @@ jobs:
           retention-days: 14
 
       - name: Open PR with updated domain tracking
+        if: steps.discover.outputs.has-changes == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.INFRA_PR_TOKEN || secrets.GITHUB_TOKEN }}

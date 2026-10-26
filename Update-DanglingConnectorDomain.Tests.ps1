@@ -326,3 +326,56 @@ Describe 'Set-AzureNameAvailability' {
         ($result | Where-Object domain -eq 'b.azurewebsites.net').nameAvailable | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Test-TrackingFileChanged' {
+    It 'reports no change when entries are identical' {
+        $entries = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json'); nameAvailable = $false; nameAvailabilityReason = 'AlreadyExists'; nameCheckedDate = '2026-09-01' })
+
+        Test-TrackingFileChanged -ExistingEntries $entries -NewEntries $entries | Should -BeFalse
+    }
+
+    It 'reports no change when only nameCheckedDate was restamped' {
+        $existing = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json'); nameAvailable = $false; nameAvailabilityReason = 'AlreadyExists'; nameCheckedDate = '2026-09-01' })
+        $new      = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json'); nameAvailable = $false; nameAvailabilityReason = 'AlreadyExists'; nameCheckedDate = '2026-09-28' })
+
+        Test-TrackingFileChanged -ExistingEntries $existing -NewEntries $new | Should -BeFalse
+    }
+
+    It 'reports a change when a domain was added' {
+        $existing = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') })
+        $new      = @(
+            [pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') }
+            [pscustomobject]@{ domain = 'bar.azurewebsites.net'; dateAdded = '2026-09-28'; connectors = @('b.json') }
+        )
+
+        Test-TrackingFileChanged -ExistingEntries $existing -NewEntries $new | Should -BeTrue
+    }
+
+    It 'reports a change when a domain was removed' {
+        $existing = @(
+            [pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') }
+            [pscustomobject]@{ domain = 'bar.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('b.json') }
+        )
+        $new = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json') })
+
+        Test-TrackingFileChanged -ExistingEntries $existing -NewEntries $new | Should -BeTrue
+    }
+
+    It 'reports a change when an existing domain''s nameAvailable flips' {
+        $existing = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json'); nameAvailable = $false; nameAvailabilityReason = 'AlreadyExists'; nameCheckedDate = '2026-09-01' })
+        $new      = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json'); nameAvailable = $true; nameAvailabilityReason = 'Available'; nameCheckedDate = '2026-09-28' })
+
+        Test-TrackingFileChanged -ExistingEntries $existing -NewEntries $new | Should -BeTrue
+    }
+
+    It 'reports no change for two empty entry lists' {
+        Test-TrackingFileChanged -ExistingEntries @() -NewEntries @() | Should -BeFalse
+    }
+
+    It 'ignores connector ordering differences' {
+        $existing = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('a.json', 'b.json') })
+        $new      = @([pscustomobject]@{ domain = 'foo.azurewebsites.net'; dateAdded = '2026-01-01'; connectors = @('b.json', 'a.json') })
+
+        Test-TrackingFileChanged -ExistingEntries $existing -NewEntries $new | Should -BeFalse
+    }
+}
