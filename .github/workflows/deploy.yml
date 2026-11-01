@@ -37,7 +37,7 @@ jobs:
 
       - name: tofu apply
         id: tofu_apply
-        uses: dflook/tofu-apply@e3e5dfc8f935d4b152c767801046f63abf8a77d3 # v3.1.0
+        uses: dflook/tofu-apply@1de081df5087fb9ba2acf4866e9bc9b95f79676c # v3.1.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
