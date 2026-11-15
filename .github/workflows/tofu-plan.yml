@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: tofu plan
-        uses: dflook/tofu-plan@c7416238983bdd94c5486fb856bb7358f2bcc935 # v3.1.0
+        uses: dflook/tofu-plan@0f690c855ee068cc5d4e0b9f3373b9b7990e73e0 # v3.1.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
